@@ -1,0 +1,17 @@
+* { box-sizing: border-box; }
+html, body, #app { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+
+.notice { padding: 1rem; }
+
+.dev-mode { display: flex; height: 100%; }
+.dev-map { flex: 1; }
+.dev-panel { width: 22rem; padding: 1rem; overflow-y: auto; border-left: 1px solid #ddd; }
+.dev-panel .hint { margin-top: 0; color: #555; }
+.dev-panel .reading { font-variant-numeric: tabular-nums; }
+.dev-panel button { width: 100%; padding: 0.75rem; font-size: 1rem; }
+
+.dev-you { background: #1a73e8; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 4px #0006; }
+.dev-handle { background: #d33; border: 2px solid #fff; border-radius: 50%; cursor: grab; box-shadow: 0 0 4px #0006; }
+
+.candidates { padding-left: 1.5rem; }
+.candidates li { padding: 0.25rem 0; }
