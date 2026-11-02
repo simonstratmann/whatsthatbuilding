@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import savedResponse from "./fixtures/overpass-buildings.json";
 import { overpassFootprintSource } from "./overpass";
 
+/** Matches a coordinate to within about 1 cm. */
+function closeTo(degrees: number) {
+  return expect.closeTo(degrees, 7);
+}
+
 function respondingWith(body: unknown, status = 200) {
   const requests: { url: string; body: string }[] = [];
   const fetchFn: typeof fetch = async (input, init) => {
@@ -39,6 +44,8 @@ describe("overpassFootprintSource", () => {
             { lat: 52.5202, lon: 13.4051 },
           ],
         ],
+        centre: { lat: closeTo(52.52015), lon: closeTo(13.40515) },
+        name: "Corner Shop",
       },
       {
         id: "way/1002",
@@ -49,6 +56,21 @@ describe("overpassFootprintSource", () => {
             { lat: 52.5204, lon: 13.4054 },
           ],
         ],
+        // A building with no tags at all: no name, no address.
+        centre: { lat: closeTo(52.5203333), lon: closeTo(13.4053667) },
+      },
+      {
+        id: "way/1003",
+        rings: [
+          [
+            { lat: 52.5205, lon: 13.4055 },
+            { lat: 52.5205, lon: 13.4057 },
+            { lat: 52.5206, lon: 13.4057 },
+            { lat: 52.5206, lon: 13.4055 },
+          ],
+        ],
+        centre: { lat: closeTo(52.52055), lon: closeTo(13.4056) },
+        address: { street: "Karl-Marx-Allee", houseNumber: "12" },
       },
       {
         // Two outer ways joined into one ring; the inner courtyard is not part of the Footprint.
@@ -61,6 +83,7 @@ describe("overpassFootprintSource", () => {
             { lat: 52.522, lon: 13.406 },
           ],
         ],
+        centre: { lat: closeTo(52.5215), lon: closeTo(13.4065) },
       },
     ]);
   });

@@ -29,6 +29,20 @@
       ]
     },
     {
+      "type": "way",
+      "id": 1003,
+      "bounds": { "minlat": 52.5205, "minlon": 13.4055, "maxlat": 52.5206, "maxlon": 13.4057 },
+      "nodes": [8, 9, 10, 11, 8],
+      "geometry": [
+        { "lat": 52.5205, "lon": 13.4055 },
+        { "lat": 52.5205, "lon": 13.4057 },
+        { "lat": 52.5206, "lon": 13.4057 },
+        { "lat": 52.5206, "lon": 13.4055 },
+        { "lat": 52.5205, "lon": 13.4055 }
+      ],
+      "tags": { "building": "apartments", "addr:street": "Karl-Marx-Allee", "addr:housenumber": "12" }
+    },
+    {
       "type": "relation",
       "id": 2001,
       "bounds": { "minlat": 52.521, "minlon": 13.406, "maxlat": 52.522, "maxlon": 13.407 },

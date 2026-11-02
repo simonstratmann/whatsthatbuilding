@@ -14,10 +14,29 @@ export interface Footprint {
   id: string;
   /** Outer rings; a building made of several parts has several. */
   rings: LatLng[][];
+  /** The middle of the Footprint, where the building's Location pin goes. */
+  centre: LatLng;
+  name?: string;
+  address?: Address;
+}
+
+/** A building's address parts, as tagged in the map data. */
+export interface Address {
+  street?: string;
+  houseNumber?: string;
 }
 
 export interface FootprintSource {
   footprintsAround(centre: LatLng, radiusMetres: number): Promise<Footprint[]>;
+}
+
+/** Where a chosen building is, as handed to the user's maps app. */
+export interface Location {
+  position: LatLng;
+  /** The building's name, else its street and house number; absent when neither is known. */
+  label?: string;
+  /** Opens the Location in the default maps app on Android: a pin at the position, named by the label. */
+  geoUri: string;
 }
 
 export interface Candidate {
@@ -25,6 +44,7 @@ export interface Candidate {
   number: number;
   footprint: Footprint;
   distanceMetres: number;
+  location: Location;
 }
 
 export interface Identification {
@@ -52,7 +72,11 @@ export async function identify(snapshot: Snapshot, source: FootprintSource): Pro
     .map(({ footprint, rings }) => ({ footprint, distanceMetres: distanceToRings(rings) }))
     .sort((a, b) => a.distanceMetres - b.distanceMetres)
     .slice(0, MAX_CANDIDATES)
-    .map((candidate, index) => ({ number: index + 1, ...candidate }));
+    .map((candidate, index) => ({
+      number: index + 1,
+      ...candidate,
+      location: locationOf(candidate.footprint),
+    }));
   return {
     candidates,
     sightCone: sightConeBoundary(snapshot),
@@ -61,6 +85,33 @@ export async function identify(snapshot: Snapshot, source: FootprintSource): Pro
       to: destination(snapshot.position, snapshot.heading, SIGHT_CONE_RANGE_METRES),
     },
   };
+}
+
+const GEO_URI_DECIMAL_PLACES = 7;
+
+function locationOf(footprint: Footprint): Location {
+  const position = footprint.centre;
+  const label = labelOf(footprint);
+  return { position, ...(label ? { label } : {}), geoUri: geoUri(position, label) };
+}
+
+/** `geo:lat,lon?q=lat,lon(label)`, the form Android maps apps read as a labelled pin. */
+function geoUri({ lat, lon }: LatLng, label: string | undefined): string {
+  const coordinates = `${formatDegrees(lat)},${formatDegrees(lon)}`;
+  // encodeURIComponent leaves brackets alone, but a bracket in the label would end it early.
+  const labelSuffix = label ? `(${encodeURIComponent(label).replace(/\(/g, "%28").replace(/\)/g, "%29")})` : "";
+  return `geo:${coordinates}?q=${coordinates}${labelSuffix}`;
+}
+
+function formatDegrees(degrees: number): string {
+  return String(Number(degrees.toFixed(GEO_URI_DECIMAL_PLACES)));
+}
+
+function labelOf({ name, address }: Footprint): string | undefined {
+  if (name) return name;
+  // A house number alone doesn't say where the building is.
+  if (address?.street) return [address.street, address.houseNumber].filter(Boolean).join(" ");
+  return undefined;
 }
 
 function sightConeBoundary({ position, heading }: Snapshot): LatLng[] {

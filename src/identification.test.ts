@@ -14,10 +14,19 @@ function offset(east: number, north: number): LatLng {
 }
 
 /** A rectangular Footprint spanning the given metre offsets from ORIGIN. */
-function building(id: string, west: number, south: number, east: number, north: number): Footprint {
+function building(
+  id: string,
+  west: number,
+  south: number,
+  east: number,
+  north: number,
+  tags: Pick<Footprint, "name" | "address"> = {},
+): Footprint {
   return {
     id,
     rings: [[offset(west, south), offset(east, south), offset(east, north), offset(west, north)]],
+    centre: offset((west + east) / 2, (south + north) / 2),
+    ...tags,
   };
 }
 
@@ -149,6 +158,55 @@ describe("identify", () => {
     const { candidates } = await identify(facing(180), sourceOf(hall));
 
     expect(candidates.map((c) => [c.footprint.id, c.distanceMetres])).toEqual([["hall", 0]]);
+  });
+
+  it.each([
+    {
+      known: "name and address",
+      tags: { name: "Rotes Rathaus", address: { street: "Rathausstraße", houseNumber: "15" } },
+      label: "Rotes Rathaus",
+    },
+    {
+      known: "street and house number",
+      tags: { address: { street: "Rathausstraße", houseNumber: "15" } },
+      label: "Rathausstraße 15",
+    },
+    { known: "street only", tags: { address: { street: "Rathausstraße" } }, label: "Rathausstraße" },
+    { known: "house number only", tags: { address: { houseNumber: "15" } }, label: undefined },
+    { known: "nothing", tags: {}, label: undefined },
+  ])("labels a Candidate by its name, else its street and house number (known: $known)", async ({ tags, label }) => {
+    const hall = building("hall", -10, 90, 10, 110, tags);
+
+    const { candidates } = await identify(facing(0), sourceOf(hall));
+
+    expect(candidates[0]?.location.label).toBe(label);
+  });
+
+  it("puts a Candidate's Location at the centre of its Footprint, with a geo: link carrying the label", async () => {
+    const cafe = {
+      ...building("cafe", -10, 90, 10, 110, { name: "Café (Old Town) & Bar #1" }),
+      centre: { lat: 52.5209, lon: 13.405 },
+    };
+
+    const { candidates } = await identify(facing(0), sourceOf(cafe));
+
+    expect(candidates[0]?.location).toEqual({
+      position: { lat: 52.5209, lon: 13.405 },
+      label: "Café (Old Town) & Bar #1",
+      geoUri: "geo:52.5209,13.405?q=52.5209,13.405(Caf%C3%A9%20%28Old%20Town%29%20%26%20Bar%20%231)",
+    });
+  });
+
+  it("gives an unlabelled Location a geo: link with just the pin", async () => {
+    const shed = {
+      ...building("shed", -10, 90, 10, 110),
+      // Rounded to 7 decimal places (about 1 cm) in the link.
+      centre: { lat: 52.520900004, lon: 13.40500000049 },
+    };
+
+    const { candidates } = await identify(facing(0), sourceOf(shed));
+
+    expect(candidates[0]?.location.geoUri).toBe("geo:52.5209,13.405?q=52.5209,13.405");
   });
 
   it("describes the Sight Cone it searched: from the user out to 500 m, ±15° around the heading", async () => {

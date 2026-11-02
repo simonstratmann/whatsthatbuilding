@@ -72,7 +72,9 @@ export function startDevMode(app: HTMLElement): void {
     try {
       const identification = await identify({ position, heading }, source);
       candidateScreen = showCandidateScreen(candidateArea, identification, (candidate) => {
-        chosenReading.textContent = `Chose Candidate ${candidate.number} (${candidate.footprint.id})`;
+        chosenReading.textContent = `Chose Candidate ${candidate.number} (${candidate.footprint.id}): ${candidate.location.geoUri}`;
+        // The same hand-off as on the phone; a desktop browser may ask which app should open it.
+        window.location.href = candidate.location.geoUri;
       });
     } catch (error) {
       candidateArea.innerHTML = `<p class="notice">Couldn't fetch map data: ${String(error)}</p>`;

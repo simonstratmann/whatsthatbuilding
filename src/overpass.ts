@@ -2,16 +2,20 @@ import type { Footprint, FootprintSource, LatLng } from "./identification";
 
 const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 
+type OsmTags = Partial<Record<string, string>>;
+
 interface OverpassWay {
   type: "way";
   id: number;
   geometry?: LatLng[];
+  tags?: OsmTags;
 }
 
 interface OverpassRelation {
   type: "relation";
   id: number;
   members?: { type: string; role: string; geometry?: LatLng[] }[];
+  tags?: OsmTags;
 }
 
 type OverpassElement = OverpassWay | OverpassRelation;
@@ -51,7 +55,70 @@ function toFootprint(element: OverpassElement): Footprint[] {
         );
 
   const usable = rings.map(withoutClosingPoint).filter((ring) => ring.length >= 3);
-  return usable.length > 0 ? [{ id: `${element.type}/${element.id}`, rings: usable }] : [];
+  if (usable.length === 0) return [];
+
+  const tags = element.tags ?? {};
+  const street = tags["addr:street"];
+  const houseNumber = tags["addr:housenumber"];
+  return [
+    {
+      id: `${element.type}/${element.id}`,
+      rings: usable,
+      centre: centreOf(usable),
+      ...(tags.name ? { name: tags.name } : {}),
+      ...(street || houseNumber ? { address: { street, houseNumber } } : {}),
+    },
+  ];
+}
+
+/**
+ * The area-weighted centroid of the rings, so a building made of a big hall and a small
+ * annex is centred on the hall. Degrees are treated as flat; a building is too small to mind.
+ */
+function centreOf(rings: LatLng[][]): LatLng {
+  let totalArea = 0;
+  let lat = 0;
+  let lon = 0;
+  for (const ring of rings) {
+    const { area, centroid } = ringCentroid(ring);
+    totalArea += area;
+    lat += area * centroid.lat;
+    lon += area * centroid.lon;
+  }
+  if (totalArea === 0) {
+    // A Footprint with no area: fall back to the average of its points.
+    const points = rings.flat();
+    return {
+      lat: points.reduce((sum, p) => sum + p.lat, 0) / points.length,
+      lon: points.reduce((sum, p) => sum + p.lon, 0) / points.length,
+    };
+  }
+  return { lat: lat / totalArea, lon: lon / totalArea };
+}
+
+/** A ring's unsigned area and centroid, by fanning it into triangles from its first point. */
+function ringCentroid(ring: LatLng[]): { area: number; centroid: LatLng } {
+  const origin = ring[0]!;
+  let signedArea = 0;
+  // Sums of each triangle's centroid offset, weighted by its signed area.
+  let weightedX = 0;
+  let weightedY = 0;
+  for (let i = 1; i < ring.length - 1; i++) {
+    // Offsets from the origin keep the numbers small.
+    const ax = ring[i]!.lon - origin.lon;
+    const ay = ring[i]!.lat - origin.lat;
+    const bx = ring[i + 1]!.lon - origin.lon;
+    const by = ring[i + 1]!.lat - origin.lat;
+    const triangle = (ax * by - bx * ay) / 2;
+    signedArea += triangle;
+    weightedX += (triangle * (ax + bx)) / 3;
+    weightedY += (triangle * (ay + by)) / 3;
+  }
+  if (signedArea === 0) return { area: 0, centroid: origin };
+  return {
+    area: Math.abs(signedArea),
+    centroid: { lat: origin.lat + weightedY / signedArea, lon: origin.lon + weightedX / signedArea },
+  };
 }
 
 /** Joins way segments that share end points into rings; OSM often splits a multipolygon's outline over several ways. */

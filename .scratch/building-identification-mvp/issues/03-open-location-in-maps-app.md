@@ -6,7 +6,7 @@
 
 **Status:** ready-for-agent
 
-- [ ] Label prefers the OSM name, then street + house number, then none
-- [ ] Location is the Footprint's centre point
-- [ ] `geo:` link contains the centre point and the label, correctly encoded
-- [ ] Choosing a Candidate opens the `geo:` link
+- [x] Label prefers the OSM name, then street + house number, then none
+- [x] Location is the Footprint's centre point
+- [x] `geo:` link contains the centre point and the label, correctly encoded
+- [x] Choosing a Candidate opens the `geo:` link

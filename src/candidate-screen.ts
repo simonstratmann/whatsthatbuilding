@@ -56,7 +56,7 @@ export function showCandidateScreen(
     item.value = candidate.number;
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = `${candidate.footprint.id} · ${formatDistance(candidate.distanceMetres)}`;
+    button.textContent = `${candidate.location.label ?? "Unnamed building"} · ${formatDistance(candidate.distanceMetres)}`;
     button.addEventListener("click", () => choose(candidate));
     item.append(button);
     list.append(item);
