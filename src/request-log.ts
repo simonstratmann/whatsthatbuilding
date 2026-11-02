@@ -1,5 +1,6 @@
-import type { LatLng, Snapshot } from "./identification";
-import type { OrientationReading } from "./sensors";
+// Imports carry their extension because the Vite config loads this file (via dev-server/).
+import type { LatLng, Snapshot } from "./identification.ts";
+import type { OrientationReading } from "./sensors.ts";
 
 /** One Overpass call as it went over the wire. */
 export interface OverpassExchange {

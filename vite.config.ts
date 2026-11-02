@@ -1,6 +1,6 @@
 import basicSsl from "@vitejs/plugin-basic-ssl";
 import { defineConfig } from "vite";
-import { requestLogPlugin } from "./dev-server/request-log";
+import { requestLogPlugin } from "./dev-server/request-log.ts";
 
 export default defineConfig(({ mode }) => ({
   // Relative asset paths, so the build runs from any folder on any static HTTPS server.

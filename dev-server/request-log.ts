@@ -2,7 +2,7 @@ import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { join } from "node:path";
 import type { Plugin } from "vite";
-import { REQUEST_LOG_PATH, type RequestLogMessage, type RequestRecord } from "../src/request-log";
+import { REQUEST_LOG_PATH, type RequestLogMessage, type RequestRecord } from "../src/request-log.ts";
 
 /** Request IDs as the app makes them; anything else could name a path outside the log folder. */
 const REQUEST_ID = /^[A-Za-z0-9-]{1,64}$/;

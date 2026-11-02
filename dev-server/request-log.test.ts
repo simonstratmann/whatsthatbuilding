@@ -2,8 +2,8 @@ import { mkdtemp, readFile, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { RequestRecord } from "../src/request-log";
-import { writeRequestLog } from "./request-log";
+import type { RequestRecord } from "../src/request-log.ts";
+import { writeRequestLog } from "./request-log.ts";
 
 const record: RequestRecord = {
   id: "20261102-153012-k3f9",
