@@ -1,4 +1,4 @@
-import { angleBetween, bearingOf, localProjection, pointAt, type LatLng, type Point } from "./geo";
+import { angleBetween, bearingOf, destination, localProjection, pointAt, type LatLng, type Point } from "./geo";
 
 export type { LatLng } from "./geo";
 
@@ -29,12 +29,17 @@ export interface Candidate {
 
 export interface Identification {
   candidates: Candidate[];
+  /** The Sight Cone that was searched: the user's position, then the far arc from left to right. */
+  sightCone: LatLng[];
+  /** From the user along their heading to the far edge of the Sight Cone. */
+  lineOfSight: { from: LatLng; to: LatLng };
 }
 
 const SIGHT_CONE_RANGE_METRES = 500;
 const SIGHT_CONE_HALF_ANGLE_DEGREES = 15;
 const MAX_CANDIDATES = 8;
 const USER: Point = { x: 0, y: 0 };
+const SIGHT_CONE_ARC_STEPS = 12;
 
 export async function identify(snapshot: Snapshot, source: FootprintSource): Promise<Identification> {
   const footprints = await source.footprintsAround(snapshot.position, SIGHT_CONE_RANGE_METRES);
@@ -48,7 +53,22 @@ export async function identify(snapshot: Snapshot, source: FootprintSource): Pro
     .sort((a, b) => a.distanceMetres - b.distanceMetres)
     .slice(0, MAX_CANDIDATES)
     .map((candidate, index) => ({ number: index + 1, ...candidate }));
-  return { candidates };
+  return {
+    candidates,
+    sightCone: sightConeBoundary(snapshot),
+    lineOfSight: {
+      from: snapshot.position,
+      to: destination(snapshot.position, snapshot.heading, SIGHT_CONE_RANGE_METRES),
+    },
+  };
+}
+
+function sightConeBoundary({ position, heading }: Snapshot): LatLng[] {
+  const arc = Array.from({ length: SIGHT_CONE_ARC_STEPS + 1 }, (_, step) => {
+    const offset = -SIGHT_CONE_HALF_ANGLE_DEGREES + (2 * SIGHT_CONE_HALF_ANGLE_DEGREES * step) / SIGHT_CONE_ARC_STEPS;
+    return destination(position, heading + offset, SIGHT_CONE_RANGE_METRES);
+  });
+  return [position, ...arc];
 }
 
 /**

@@ -6,7 +6,7 @@
 
 **Status:** ready-for-agent
 
-- [ ] Mini-map fits the user's position and all Candidates
-- [ ] Line of Sight, Sight Cone and numbered Footprints drawn
-- [ ] Tapping a Footprint or a list entry chooses that Candidate
-- [ ] OSM attribution visible
+- [x] Mini-map fits the user's position and all Candidates
+- [x] Line of Sight, Sight Cone and numbered Footprints drawn
+- [x] Tapping a Footprint or a list entry chooses that Candidate
+- [x] OSM attribution visible

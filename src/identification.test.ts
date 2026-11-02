@@ -150,4 +150,41 @@ describe("identify", () => {
 
     expect(candidates.map((c) => [c.footprint.id, c.distanceMetres])).toEqual([["hall", 0]]);
   });
+
+  it("describes the Sight Cone it searched: from the user out to 500 m, ±15° around the heading", async () => {
+    const { sightCone } = await identify(facing(355), sourceOf());
+
+    const [apex, ...arc] = sightCone;
+    expect(apex).toEqual(ORIGIN);
+    const bearings = arc.map((p) => bearingFromOrigin(p));
+    const distances = arc.map((p) => distanceFromOrigin(p));
+    expect(bearings[0]).toBeCloseTo(340, 6);
+    expect(bearings.at(-1)).toBeCloseTo(10, 6);
+    for (const d of distances) expect(d).toBeCloseTo(500, 6);
+  });
+
+  it("describes the Line of Sight: from the user along the heading to the far edge of the Sight Cone", async () => {
+    const { lineOfSight } = await identify(facing(355), sourceOf());
+
+    expect(lineOfSight.from).toEqual(ORIGIN);
+    expect(bearingFromOrigin(lineOfSight.to)).toBeCloseTo(355, 6);
+    expect(distanceFromOrigin(lineOfSight.to)).toBeCloseTo(500, 6);
+  });
 });
+
+function toMetres(p: LatLng): { east: number; north: number } {
+  return {
+    east: (p.lon - ORIGIN.lon) * METRES_PER_DEGREE_LAT * Math.cos((ORIGIN.lat * Math.PI) / 180),
+    north: (p.lat - ORIGIN.lat) * METRES_PER_DEGREE_LAT,
+  };
+}
+
+function bearingFromOrigin(p: LatLng): number {
+  const { east, north } = toMetres(p);
+  return ((Math.atan2(east, north) * 180) / Math.PI + 360) % 360;
+}
+
+function distanceFromOrigin(p: LatLng): number {
+  const { east, north } = toMetres(p);
+  return Math.hypot(east, north);
+}

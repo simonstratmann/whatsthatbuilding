@@ -1,8 +1,8 @@
 import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { renderCandidateList } from "./candidate-list";
+import { showCandidateScreen, type CandidateScreen } from "./candidate-screen";
 import { bearing, destination, type LatLng } from "./geo";
 import { identify } from "./identification";
+import { addOsmTiles, fromLeaflet, toLeaflet } from "./leaflet-map";
 import { overpassFootprintSource } from "./overpass";
 
 const START: LatLng = { lat: 52.5219, lon: 13.4132 }; // Alexanderplatz, Berlin
@@ -21,22 +21,22 @@ export function startDevMode(app: HTMLElement): void {
         <p class="reading" id="reading"></p>
         <button id="snapshot" type="button">Take Snapshot</button>
         <div id="candidates"></div>
+        <p class="chosen-reading" id="chosen"></p>
       </aside>
     </div>`;
 
   const map = L.map(app.querySelector<HTMLElement>("#dev-map")!).setView([START.lat, START.lon], 17);
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  }).addTo(map);
+  addOsmTiles(map);
 
   const reading = app.querySelector<HTMLElement>("#reading")!;
   const candidateArea = app.querySelector<HTMLElement>("#candidates")!;
+  const chosenReading = app.querySelector<HTMLElement>("#chosen")!;
   const button = app.querySelector<HTMLButtonElement>("#snapshot")!;
   const source = overpassFootprintSource();
 
   let position = START;
   let heading = 0;
+  let candidateScreen: CandidateScreen | undefined;
 
   const positionMarker = L.marker(toLeaflet(position), {
     icon: L.divIcon({ className: "dev-position", iconSize: [16, 16] }),
@@ -65,10 +65,15 @@ export function startDevMode(app: HTMLElement): void {
 
   button.addEventListener("click", async () => {
     button.disabled = true;
+    candidateScreen?.destroy();
+    candidateScreen = undefined;
+    chosenReading.textContent = "";
     candidateArea.innerHTML = `<p class="notice">Looking for buildings…</p>`;
     try {
-      const { candidates } = await identify({ position, heading }, source);
-      renderCandidateList(candidateArea, candidates);
+      const identification = await identify({ position, heading }, source);
+      candidateScreen = showCandidateScreen(candidateArea, identification, (candidate) => {
+        chosenReading.textContent = `Chose Candidate ${candidate.number} (${candidate.footprint.id})`;
+      });
     } catch (error) {
       candidateArea.innerHTML = `<p class="notice">Couldn't fetch map data: ${String(error)}</p>`;
     } finally {
@@ -77,12 +82,4 @@ export function startDevMode(app: HTMLElement): void {
   });
 
   redraw();
-}
-
-function toLeaflet(p: LatLng): L.LatLngTuple {
-  return [p.lat, p.lon];
-}
-
-function fromLeaflet(p: L.LatLng): LatLng {
-  return { lat: p.lat, lon: p.lng };
 }

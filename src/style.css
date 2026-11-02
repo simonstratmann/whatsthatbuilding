@@ -15,3 +15,18 @@ html, body, #app { margin: 0; height: 100%; font-family: system-ui, sans-serif; 
 
 .candidates { padding-left: 1.5rem; }
 .candidates li { padding: 0.25rem 0; }
+
+.mini-map { height: 18rem; margin-top: 1rem; border: 1px solid #ddd; }
+.mini-map .sight-cone { fill: #d33; fill-opacity: 0.18; stroke: #d33; stroke-opacity: 0.8; stroke-width: 1.5; }
+.mini-map .line-of-sight { stroke: #d33; stroke-width: 2; stroke-dasharray: 6 4; }
+.mini-map .footprint { fill: #f08c00; fill-opacity: 0.35; stroke: #b35f00; stroke-width: 2; }
+.mini-map .footprint.chosen { fill: #1a73e8; fill-opacity: 0.5; stroke: #0b4fae; stroke-width: 3; }
+.mini-map .user-position { fill: #1a73e8; fill-opacity: 1; stroke: #fff; stroke-width: 2; }
+.footprint-number { padding: 0 0.35rem; font-weight: 700; background: #fff; border: 1px solid #b35f00; box-shadow: none; }
+.footprint-number::before { display: none; }
+.footprint-number.chosen { background: #1a73e8; border-color: #0b4fae; color: #fff; }
+
+.candidates button { width: 100%; padding: 0.4rem 0.5rem; font: inherit; text-align: left; background: none; border: 1px solid transparent; border-radius: 4px; cursor: pointer; }
+.candidates button:hover { border-color: #ccc; }
+.candidates li.chosen button { background: #e8f0fe; border-color: #1a73e8; }
+.chosen-reading { color: #555; }

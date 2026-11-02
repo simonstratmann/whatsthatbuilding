@@ -63,7 +63,7 @@ A web app on my Android phone. I point the camera so the Crosshair is on the bui
 
 ## Testing Decisions
 
-- A good test drives the Identification module through its public entry point with a Snapshot and a fake Footprint source and checks only the returned Candidates and warnings. Tests never call internal geometry helpers directly, so the geometry can be reworked freely.
+- A good test drives the Identification module through its public entry point with a Snapshot and a fake Footprint source and checks only what it returns: Candidates, warnings, and the Sight Cone and Line of Sight it searched along (which the mini-map draws). Tests never call internal geometry helpers directly, so the geometry can be reworked freely.
 - Scenarios to cover, each with hand-made Footprints:
   - a building directly ahead is a Candidate
   - a building just outside the ±15° edge is not a Candidate
