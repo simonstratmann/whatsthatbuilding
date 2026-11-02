@@ -5,7 +5,7 @@ import { identify } from "./identification";
 import { addOsmTiles, fromLeaflet, toLeaflet } from "./leaflet-map";
 import { overpassFootprintSource } from "./overpass";
 
-const START: LatLng = { lat: 52.5219, lon: 13.4132 }; // Alexanderplatz, Berlin
+const START: LatLng = { lat: 52.3745, lon: 9.7386 }; // Kröpcke, Hannover
 const HANDLE_DISTANCE_METRES = 150;
 
 /**

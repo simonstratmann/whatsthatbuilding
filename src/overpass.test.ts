@@ -20,7 +20,7 @@ describe("overpassFootprintSource", () => {
   it("asks Overpass for buildings within the radius of the centre", async () => {
     const { fetchFn, requests } = respondingWith({ elements: [] });
 
-    await overpassFootprintSource(fetchFn).footprintsAround({ lat: 52.52, lon: 13.405 }, 500);
+    await overpassFootprintSource({ url: "https://overpass.example.org/api/interpreter", fetchFn }).footprintsAround({ lat: 52.52, lon: 13.405 }, 500);
 
     expect(requests).toHaveLength(1);
     const query = new URLSearchParams(requests[0]!.body).get("data");
@@ -28,10 +28,21 @@ describe("overpassFootprintSource", () => {
     expect(query).toContain('"building"');
   });
 
+  it("asks the Overpass server it was given", async () => {
+    const { fetchFn, requests } = respondingWith({ elements: [] });
+
+    await overpassFootprintSource({ url: "https://overpass.example.org/api/interpreter", fetchFn }).footprintsAround(
+      { lat: 52.3745, lon: 9.7386 },
+      500,
+    );
+
+    expect(requests.map((r) => r.url)).toEqual(["https://overpass.example.org/api/interpreter"]);
+  });
+
   it("turns a saved Overpass response into Footprints", async () => {
     const { fetchFn } = respondingWith(savedResponse);
 
-    const footprints = await overpassFootprintSource(fetchFn).footprintsAround({ lat: 52.52, lon: 13.405 }, 500);
+    const footprints = await overpassFootprintSource({ url: "https://overpass.example.org/api/interpreter", fetchFn }).footprintsAround({ lat: 52.52, lon: 13.405 }, 500);
 
     expect(footprints).toEqual([
       {
@@ -92,7 +103,7 @@ describe("overpassFootprintSource", () => {
     const { fetchFn } = respondingWith({ remark: "rate limited" }, 429);
 
     await expect(
-      overpassFootprintSource(fetchFn).footprintsAround({ lat: 52.52, lon: 13.405 }, 500),
+      overpassFootprintSource({ url: "https://overpass.example.org/api/interpreter", fetchFn }).footprintsAround({ lat: 52.52, lon: 13.405 }, 500),
     ).rejects.toThrow(/429/);
   });
 });

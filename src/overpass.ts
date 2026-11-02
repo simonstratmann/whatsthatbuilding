@@ -1,6 +1,5 @@
 import type { Footprint, FootprintSource, LatLng } from "./identification";
 
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 
 type OsmTags = Partial<Record<string, string>>;
 
@@ -20,8 +19,20 @@ interface OverpassRelation {
 
 type OverpassElement = OverpassWay | OverpassRelation;
 
-/** Footprints from OpenStreetMap, fetched live from the public Overpass API. */
-export function overpassFootprintSource(fetchFn: typeof fetch = fetch.bind(globalThis)): FootprintSource {
+/** The public Overpass server, used when the build doesn't name another. */
+const PUBLIC_OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+
+export interface OverpassOptions {
+  /** The Overpass interpreter endpoint. Defaults to `VITE_OVERPASS_URL` (see `.env.example`), else the public server. */
+  url?: string;
+  fetchFn?: typeof fetch;
+}
+
+/** Footprints from OpenStreetMap, fetched live from an Overpass API server. */
+export function overpassFootprintSource({
+  url = import.meta.env.VITE_OVERPASS_URL || PUBLIC_OVERPASS_URL,
+  fetchFn = fetch.bind(globalThis),
+}: OverpassOptions = {}): FootprintSource {
   return {
     async footprintsAround(centre, radiusMetres) {
       const around = `around:${Math.round(radiusMetres)},${centre.lat},${centre.lon}`;
@@ -32,7 +43,7 @@ export function overpassFootprintSource(fetchFn: typeof fetch = fetch.bind(globa
 );
 out geom;`;
 
-      const response = await fetchFn(OVERPASS_URL, {
+      const response = await fetchFn(url, {
         method: "POST",
         body: new URLSearchParams({ data: query }),
       });

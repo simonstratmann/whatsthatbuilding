@@ -45,7 +45,7 @@ A web app on my Android phone. I point the camera so the Crosshair is on the bui
 ## Implementation Decisions
 
 - **Platform:** an installable PWA (manifest + service worker for the app shell), built with plain TypeScript and Vite. There is no UI framework. The target is Chrome on Android.
-- **Hosting:** static files on the developer's own server, which already has an HTTPS certificate. There is no backend; the browser calls Overpass directly.
+- **Hosting:** static files on the developer's own server, which already has an HTTPS certificate. There is no backend; the browser calls Overpass directly. The Overpass server is a build setting (`VITE_OVERPASS_URL`, set in the git-ignored `.env.local`; see `.env.example`); without it the app uses the public Overpass server.
 - **Identification method:** geometry only, never image analysis (see ADR 0001). The camera is only a viewfinder.
 - **Modules:**
   - **Identification** (the deep module and the main test seam). Input: a Snapshot (latitude, longitude, heading in degrees from north, GPS accuracy in metres, compass-calibration state) and a Footprint source. Output: a result made of ranked Candidates (number, Footprint, distance from the user, label if known, Location and its `geo:` link) plus warnings (imprecise location, compass needs calibration, nothing found). It owns the Sight Cone geometry, ordering, the cap and labelling.
@@ -95,7 +95,7 @@ A web app on my Android phone. I point the camera so the Crosshair is on the bui
 
 ## Further Notes
 
-- The public Overpass API has rate limits and occasional slowness. That's fine for one user, but if it causes trouble, a proxy/cache on the developer's own server is the obvious next step.
+- The public Overpass API can be slow and unreliable (40 s answers and instant 502s were seen while testing). Pointing `VITE_OVERPASS_URL` at a self-hosted Overpass instance avoids that; an instance holding a regional extract only finds buildings inside that region.
 - The ±15°, 500 m, cap of 8 and 30 m thresholds are starting values to tune after real walks.
 - Mini-map tiles from OSM need visible attribution.
 - Glossary: see `CONTEXT.md`. Decision record: `docs/adr/0001-identify-by-line-of-sight-not-image.md`.
