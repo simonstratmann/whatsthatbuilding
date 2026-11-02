@@ -51,7 +51,7 @@ describe("overpassFootprintSource", () => {
         ],
       },
       {
-        // Two outer ways joined into one ring; the inner courtyard is not part of the outline.
+        // Two outer ways joined into one ring; the inner courtyard is not part of the Footprint.
         id: "relation/2001",
         rings: [
           [

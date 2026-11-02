@@ -42,9 +42,9 @@ describe("identify", () => {
   });
 
   it("leaves out a building just outside the edge of the Sight Cone", async () => {
-    // Small buildings 100 m away: one at a bearing of 12°, one at 20° (the cone ends at 15°).
-    const inside = building("inside", 19, 95.8, 23, 99.8);
-    const outside = building("outside", 32.2, 92, 36.2, 96);
+    // 1 m sheds 100 m away, centred on bearings of 14° and 16° (each spans about ±0.3°); the cone ends at 15°.
+    const inside = building("inside", 23.69, 96.53, 24.69, 97.53);
+    const outside = building("outside", 27.06, 95.63, 28.06, 96.63);
 
     const { candidates } = await identify(facing(0), sourceOf(inside, outside));
 
@@ -132,5 +132,22 @@ describe("identify", () => {
     const { candidates } = await identify(facing(90), sourceOf(arcade));
 
     expect(candidates.map((c) => [c.footprint.id, c.distanceMetres])).toEqual([["arcade", 0]]);
+  });
+
+  it("leaves out a building behind the user even when one of its corners is exactly where they stand", async () => {
+    const behind = building("behind", 0, -20, 20, 0);
+
+    const { candidates } = await identify(facing(0), sourceOf(behind));
+
+    expect(candidates).toEqual([]);
+  });
+
+  it("offers a building whose wall the user stands exactly on, when it fills the Sight Cone", async () => {
+    // A vast hall to the south; the user stands on its north wall, facing into it.
+    const hall = building("hall", -1000, -1000, 1000, 0);
+
+    const { candidates } = await identify(facing(180), sourceOf(hall));
+
+    expect(candidates.map((c) => [c.footprint.id, c.distanceMetres])).toEqual([["hall", 0]]);
   });
 });
