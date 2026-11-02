@@ -5,13 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
+    "dev:https": "vite --host --mode https",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host",
+    "preview:https": "vite build && vite preview --host --mode https",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.22",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"
