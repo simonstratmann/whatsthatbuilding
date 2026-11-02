@@ -2,6 +2,12 @@ import basicSsl from "@vitejs/plugin-basic-ssl";
 import { defineConfig } from "vite";
 import { requestLogPlugin } from "./dev-server/request-log.ts";
 
+/**
+ * Host names the preview server answers to, from ALLOWED_HOSTS (comma-separated), for the
+ * dev-latest image behind a reverse proxy. Unset keeps Vite's default of local names only.
+ */
+const allowedHosts = process.env.ALLOWED_HOSTS?.split(",").map((host) => host.trim()).filter(Boolean);
+
 export default defineConfig(({ mode }) => ({
   // Relative asset paths, so the build runs from any folder on any static HTTPS server.
   base: "./",
@@ -12,4 +18,5 @@ export default defineConfig(({ mode }) => ({
     // local network will share its camera and sensors (after accepting the warning).
     ...(mode === "https" ? [basicSsl()] : []),
   ],
+  preview: allowedHosts?.length ? { allowedHosts } : {},
 }));

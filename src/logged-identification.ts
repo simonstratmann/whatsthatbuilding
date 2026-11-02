@@ -4,10 +4,11 @@ import { REQUEST_LOG_PATH, type OverpassExchange, type RequestLogMessage, type R
 import type { OrientationReading } from "./sensors";
 
 /**
- * Only the dev server and the `preview:https` build (mode "https") have the request log;
- * a deployed build doesn't send each Overpass answer to a server that would drop it.
+ * Only the dev server and builds made with VITE_REQUEST_LOG=true (`preview:https`, the
+ * dev-latest image) have the request log; a production build doesn't send each Overpass
+ * answer to a server that would drop it.
  */
-const LOGGING = import.meta.env.DEV || import.meta.env.MODE === "https";
+const LOGGING = import.meta.env.DEV || import.meta.env.VITE_REQUEST_LOG === "true";
 
 export type LoggedIdentification =
   | { requestId: string; identification: Identification }

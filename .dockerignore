@@ -1,0 +1,8 @@
+# Keep local settings (your Overpass server), logs and build output out of the images.
+.git
+.env
+*.local
+node_modules
+dist
+logs
+.scratch

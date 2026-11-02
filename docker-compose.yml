@@ -1,0 +1,33 @@
+# Example: both images side by side behind your own SSL-terminating reverse proxy (e.g. nginx),
+# which forwards https://building.example.org → localhost:8080
+#      and https://building-dev.example.org → localhost:4173.
+#
+# Settings come from the environment: put them in a .env file next to this one
+# (ignored by git) or export them in your shell, e.g.
+#   OVERPASS_URL=https://overpass.example.org/api/interpreter
+#   DEV_HOST=building-dev.example.org
+
+services:
+  app:
+    image: ghcr.io/simonstratmann/whatsthatbuilding:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:80"
+    environment:
+      # The Overpass interpreter the browser asks for building outlines. It must be HTTPS and
+      # send Access-Control-Allow-Origin. Empty uses the public server.
+      OVERPASS_URL: ${OVERPASS_URL:-}
+
+  app-dev:
+    image: ghcr.io/simonstratmann/whatsthatbuilding:dev-latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4173:4173"
+    environment:
+      OVERPASS_URL: ${OVERPASS_URL:-}
+      # Host name(s) the reverse proxy forwards, comma-separated; Vite refuses any other.
+      ALLOWED_HOSTS: ${DEV_HOST:?set DEV_HOST to the dev host name}
+    volumes:
+      # Request logs: requests.log and requests/<id>.json. The container runs as uid 1000,
+      # which must be able to write here.
+      - ./logs:/app/logs

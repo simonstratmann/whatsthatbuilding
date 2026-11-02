@@ -1,3 +1,4 @@
+import { overpassUrl } from "./config";
 import type { Footprint, FootprintSource, LatLng } from "./identification";
 
 
@@ -19,18 +20,15 @@ interface OverpassRelation {
 
 type OverpassElement = OverpassWay | OverpassRelation;
 
-/** The public Overpass server, used when the build doesn't name another. */
-const PUBLIC_OVERPASS_URL = "https://overpass-api.de/api/interpreter";
-
 export interface OverpassOptions {
-  /** The Overpass interpreter endpoint. Defaults to `VITE_OVERPASS_URL` (see `.env.example`), else the public server. */
+  /** The Overpass interpreter endpoint; defaults to the configured one (see config.ts). */
   url?: string;
   fetchFn?: typeof fetch;
 }
 
 /** Footprints from OpenStreetMap, fetched live from an Overpass API server. */
 export function overpassFootprintSource({
-  url = import.meta.env.VITE_OVERPASS_URL || PUBLIC_OVERPASS_URL,
+  url = overpassUrl(),
   fetchFn = fetch.bind(globalThis),
 }: OverpassOptions = {}): FootprintSource {
   return {
