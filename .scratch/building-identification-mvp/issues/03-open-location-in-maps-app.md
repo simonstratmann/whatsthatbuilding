@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Label prefers the OSM name, then street + house number, then none
 - [x] Location is the Footprint's centre point
