@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Vite + TypeScript + Vitest project set up; typecheck, test and build scripts work
 - [x] Identification module takes a Snapshot and a Footprint source and returns ranked Candidates

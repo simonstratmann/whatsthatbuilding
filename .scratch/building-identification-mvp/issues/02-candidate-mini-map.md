@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Mini-map fits the user's position and all Candidates
 - [x] Line of Sight, Sight Cone and numbered Footprints drawn
