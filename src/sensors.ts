@@ -46,12 +46,18 @@ export class SensorError extends Error {
   }
 }
 
+/** A Snapshot together with the raw orientation reading its heading came from. */
+export interface TakenSnapshot {
+  snapshot: Snapshot;
+  orientation: OrientationReading;
+}
+
 export interface Sensors {
   /**
    * Takes a Snapshot: the heading at this instant and the most recent position fix, waiting
    * for the first fix if there isn't one yet. Rejects with a SensorError.
    */
-  snapshot(): Promise<Snapshot>;
+  snapshot(): Promise<TakenSnapshot>;
   stop(): void;
 }
 
@@ -117,15 +123,19 @@ export function startSensors(onProblem: (problem: SensorProblem) => void): Senso
   return {
     async snapshot() {
       // Read the heading first, at the moment of the tap; the position fix may take a while.
-      if (!orientation || orientation.alpha === null) throw new SensorError("orientation-unavailable");
-      const heading = cameraHeading(orientation);
+      const reading = orientation;
+      if (!reading || reading.alpha === null) throw new SensorError("orientation-unavailable");
+      const heading = cameraHeading(reading);
       if (heading === null) throw new SensorError("phone-flat");
 
       const position = await nextFix();
       return {
-        position: { lat: position.coords.latitude, lon: position.coords.longitude },
-        heading,
-        accuracyMetres: position.coords.accuracy,
+        snapshot: {
+          position: { lat: position.coords.latitude, lon: position.coords.longitude },
+          heading,
+          accuracyMetres: position.coords.accuracy,
+        },
+        orientation: reading,
       };
     },
     stop() {

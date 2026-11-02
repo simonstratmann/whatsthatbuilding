@@ -1,9 +1,9 @@
 import L from "leaflet";
 import { showCandidateScreen, type CandidateScreen } from "./candidate-screen";
 import { bearing, destination, type LatLng } from "./geo";
-import { identify } from "./identification";
 import { addOsmTiles, fromLeaflet, toLeaflet } from "./leaflet-map";
-import { overpassFootprintSource } from "./overpass";
+import { identifyAndLog, logChoice } from "./logged-identification";
+import { requestIdLine } from "./request-id";
 
 const START: LatLng = { lat: 52.3745, lon: 9.7386 }; // Kröpcke, Hannover
 const HANDLE_DISTANCE_METRES = 150;
@@ -32,7 +32,6 @@ export function startDevMode(app: HTMLElement): void {
   const candidateArea = app.querySelector<HTMLElement>("#candidates")!;
   const chosenReading = app.querySelector<HTMLElement>("#chosen")!;
   const button = app.querySelector<HTMLButtonElement>("#snapshot")!;
-  const source = overpassFootprintSource();
 
   let position = START;
   let heading = 0;
@@ -69,18 +68,24 @@ export function startDevMode(app: HTMLElement): void {
     candidateScreen = undefined;
     chosenReading.textContent = "";
     candidateArea.innerHTML = `<p class="notice">Looking for buildings…</p>`;
-    try {
-      const identification = await identify({ position, heading, accuracyMetres: 0 }, source);
-      candidateScreen = showCandidateScreen(candidateArea, identification, (candidate) => {
-        chosenReading.textContent = `Chose Candidate ${candidate.number} (${candidate.footprint.id}): ${candidate.location.geoUri}`;
-        // The same hand-off as on the phone; a desktop browser may ask which app should open it.
-        window.location.href = candidate.location.geoUri;
-      });
-    } catch (error) {
-      candidateArea.innerHTML = `<p class="notice">Couldn't fetch map data: ${String(error)}</p>`;
-    } finally {
-      button.disabled = false;
+    const result = await identifyAndLog({ position, heading, accuracyMetres: 0 }, "dev");
+    button.disabled = false;
+    candidateArea.innerHTML = "";
+    const screen = document.createElement("div");
+    candidateArea.append(requestIdLine(result.requestId), screen);
+    if ("error" in result) {
+      const notice = document.createElement("p");
+      notice.className = "notice";
+      notice.textContent = `Couldn't fetch map data: ${String(result.error)}`;
+      screen.append(notice);
+      return;
     }
+    candidateScreen = showCandidateScreen(screen, result.identification, (candidate) => {
+      logChoice(result.requestId, candidate);
+      chosenReading.textContent = `Chose Candidate ${candidate.number} (${candidate.footprint.id}): ${candidate.location.geoUri}`;
+      // The same hand-off as on the phone; a desktop browser may ask which app should open it.
+      window.location.href = candidate.location.geoUri;
+    });
   });
 
   redraw();

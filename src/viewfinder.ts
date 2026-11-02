@@ -1,5 +1,4 @@
-import type { Snapshot } from "./identification";
-import { SensorError, startSensors, type SensorProblem } from "./sensors";
+import { SensorError, startSensors, type SensorProblem, type TakenSnapshot } from "./sensors";
 
 export interface Viewfinder {
   /** Stops the camera and sensors; call before discarding the container. */
@@ -25,7 +24,7 @@ const PROBLEM_MESSAGES: Record<ViewfinderProblem, string> = {
  * The rear camera filling the screen, a Crosshair in the middle and a shutter button.
  * The camera is only a viewfinder: no frame is ever recorded or stored.
  */
-export function showViewfinder(container: HTMLElement, onSnapshot: (snapshot: Snapshot) => void): Viewfinder {
+export function showViewfinder(container: HTMLElement, onSnapshot: (taken: TakenSnapshot) => void): Viewfinder {
   container.innerHTML = `
     <div class="viewfinder">
       <video class="viewfinder-video" autoplay playsinline muted></video>
@@ -63,8 +62,8 @@ export function showViewfinder(container: HTMLElement, onSnapshot: (snapshot: Sn
     shutter.disabled = true;
     problemBanner.hidden = true;
     try {
-      const snapshot = await sensors.snapshot();
-      if (!destroyed) onSnapshot(snapshot);
+      const taken = await sensors.snapshot();
+      if (!destroyed) onSnapshot(taken);
     } catch (error) {
       if (destroyed) return;
       if (!(error instanceof SensorError)) throw error;

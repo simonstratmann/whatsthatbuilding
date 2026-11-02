@@ -1,6 +1,6 @@
 import { showCandidateScreen } from "./candidate-screen";
-import { identify } from "./identification";
-import { overpassFootprintSource } from "./overpass";
+import { identifyAndLog, logChoice } from "./logged-identification";
+import { requestIdLine } from "./request-id";
 import { showViewfinder } from "./viewfinder";
 
 /**
@@ -32,20 +32,26 @@ function showIntro(app: HTMLElement): void {
 }
 
 function startViewfinder(app: HTMLElement): void {
-  const source = overpassFootprintSource();
-  const viewfinder = showViewfinder(app, async (snapshot) => {
+  const viewfinder = showViewfinder(app, async ({ snapshot, orientation }) => {
     viewfinder.destroy();
     app.innerHTML = `<p class="notice">Looking for buildings…</p>`;
-    try {
-      const identification = await identify(snapshot, source);
-      app.innerHTML = `<div class="candidate-screen"></div>`;
-      showCandidateScreen(app.querySelector<HTMLElement>(".candidate-screen")!, identification, (candidate) => {
-        window.location.href = candidate.location.geoUri;
-      });
-    } catch (error) {
-      app.innerHTML = `<p class="notice"></p>`;
-      app.querySelector(".notice")!.textContent = `Couldn't fetch map data: ${String(error)}`;
+    const result = await identifyAndLog(snapshot, "phone", orientation);
+    app.innerHTML = "";
+    app.append(requestIdLine(result.requestId));
+    if ("error" in result) {
+      const notice = document.createElement("p");
+      notice.className = "notice";
+      notice.textContent = `Couldn't fetch map data: ${String(result.error)}`;
+      app.append(notice);
+      return;
     }
+    const screen = document.createElement("div");
+    screen.className = "candidate-screen";
+    app.append(screen);
+    showCandidateScreen(screen, result.identification, (candidate) => {
+      logChoice(result.requestId, candidate);
+      window.location.href = candidate.location.geoUri;
+    });
   });
 }
 

@@ -47,3 +47,7 @@ html, body, #app { margin: 0; height: 100%; font-family: system-ui, sans-serif; 
 .shutter:disabled { opacity: 0.5; }
 
 .candidate-screen { padding: 0 1rem 1rem; }
+
+.request-id { margin: 0.5rem 0 0; font-size: 0.85rem; color: #555; }
+#app > .request-id { padding: 0 1rem; }
+.request-id code { user-select: all; font-size: 0.95rem; color: #000; }
