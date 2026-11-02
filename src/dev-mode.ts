@@ -70,7 +70,7 @@ export function startDevMode(app: HTMLElement): void {
     chosenReading.textContent = "";
     candidateArea.innerHTML = `<p class="notice">Looking for buildings…</p>`;
     try {
-      const identification = await identify({ position, heading }, source);
+      const identification = await identify({ position, heading, accuracyMetres: 0 }, source);
       candidateScreen = showCandidateScreen(candidateArea, identification, (candidate) => {
         chosenReading.textContent = `Chose Candidate ${candidate.number} (${candidate.footprint.id}): ${candidate.location.geoUri}`;
         // The same hand-off as on the phone; a desktop browser may ask which app should open it.

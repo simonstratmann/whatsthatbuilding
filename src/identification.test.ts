@@ -35,7 +35,7 @@ function sourceOf(...footprints: Footprint[]): FootprintSource {
 }
 
 function facing(heading: number): Snapshot {
-  return { position: ORIGIN, heading };
+  return { position: ORIGIN, heading, accuracyMetres: 5 };
 }
 
 describe("identify", () => {

@@ -4,9 +4,9 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Rear camera stream fills the screen with a centred Crosshair; no image is stored
-- [ ] Shutter reads geolocation and absolute device orientation into a Snapshot (heading from true north, corrected for screen orientation)
-- [ ] Missing or denied permissions show which permission is needed
-- [ ] Production build is plain static files that can be served from any HTTPS server
+- [x] Rear camera stream fills the screen with a centred Crosshair; no image is stored
+- [x] Shutter reads geolocation and absolute device orientation into a Snapshot (heading from magnetic north, corrected for screen orientation; see spec, Sensors)
+- [x] Missing or denied permissions show which permission is needed
+- [x] Production build is plain static files that can be served from any HTTPS server

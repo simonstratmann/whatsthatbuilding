@@ -30,3 +30,20 @@ html, body, #app { margin: 0; height: 100%; font-family: system-ui, sans-serif; 
 .candidates button:hover { border-color: #ccc; }
 .candidates li.chosen button { background: #e8f0fe; border-color: #1a73e8; }
 .chosen-reading { color: #555; }
+
+.intro { max-width: 32rem; margin: 0 auto; padding: 1.5rem; line-height: 1.4; }
+.intro h1 { font-size: 1.5rem; }
+.intro .start { width: 100%; padding: 0.9rem; font-size: 1.1rem; }
+
+.viewfinder { position: fixed; inset: 0; overflow: hidden; background: #000; }
+.viewfinder-video { width: 100%; height: 100%; object-fit: cover; }
+.crosshair { position: absolute; top: 50%; left: 50%; width: 3rem; height: 3rem; transform: translate(-50%, -50%); pointer-events: none; }
+.crosshair::before, .crosshair::after { content: ""; position: absolute; background: #fff; box-shadow: 0 0 3px #000; }
+.crosshair::before { top: 50%; left: 0; width: 100%; height: 2px; transform: translateY(-50%); }
+.crosshair::after { left: 50%; top: 0; height: 100%; width: 2px; transform: translateX(-50%); }
+.viewfinder-problem { position: absolute; top: 1rem; left: 1rem; right: 1rem; margin: 0; padding: 0.75rem 1rem; background: #fffc; border-radius: 6px; }
+.shutter { position: absolute; bottom: 2rem; left: 50%; width: 4.5rem; height: 4.5rem; transform: translateX(-50%); border: 4px solid #fff; border-radius: 50%; background: #fff6; }
+.shutter:active { background: #fff; }
+.shutter:disabled { opacity: 0.5; }
+
+.candidate-screen { padding: 0 1rem 1rem; }

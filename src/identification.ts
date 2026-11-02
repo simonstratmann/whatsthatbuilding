@@ -5,8 +5,13 @@ export type { LatLng } from "./geo";
 /** The moment the user presses the shutter: where they stand and which way they face. */
 export interface Snapshot {
   position: LatLng;
-  /** Degrees clockwise from true north. */
+  /**
+   * Degrees clockwise from north. On the phone this is magnetic north, as the compass reports
+   * it; the few degrees of declination fall well inside the Sight Cone.
+   */
   heading: number;
+  /** How far off the position may be, in metres, as the GPS reports it. */
+  accuracyMetres: number;
 }
 
 /** A building's outline on the ground. */
