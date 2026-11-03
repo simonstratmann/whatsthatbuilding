@@ -14,8 +14,10 @@ services:
     ports:
       - "127.0.0.1:8080:80"
     environment:
-      # The Overpass interpreter the browser asks for building outlines. It must be HTTPS and
-      # send Access-Control-Allow-Origin. Empty uses the public server.
+      # The Overpass interpreter the app forwards its queries to (/api/interpreter on this
+      # host). Only the container talks to it, so an internal address works, e.g.
+      # http://overpass:8080/api/interpreter for an Overpass service in the same Compose
+      # project. Empty uses the public server.
       OVERPASS_URL: ${OVERPASS_URL:-}
 
   app-dev:

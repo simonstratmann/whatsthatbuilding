@@ -2,7 +2,7 @@
 # Two images from one Dockerfile:
 #   --target production  → static build served by nginx              (tag: latest)
 #   --target dev         → build with request logging, Vite preview   (tag: dev-latest)
-# Both read their settings from environment variables at start-up (docker/write-config.sh).
+# Both forward the app's Overpass queries (/api/interpreter) to OVERPASS_URL, read at start-up.
 
 FROM node:24-alpine AS source
 WORKDIR /app
@@ -16,16 +16,16 @@ RUN npm run build
 FROM nginx:1.29-alpine AS production
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 # The nginx image runs every script in /docker-entrypoint.d/ before starting.
-COPY docker/write-config.sh /docker-entrypoint.d/40-write-config.sh
+COPY docker/write-overpass-proxy.sh /docker-entrypoint.d/40-write-overpass-proxy.sh
 COPY --from=production-build /app/dist /usr/share/nginx/html
 EXPOSE 80
 
 FROM source AS dev
-# The node user needs to write the logs, config.js in dist, and the temporary copy of the
-# Vite config that Vite writes to node_modules/.vite-temp on start-up.
+# The node user needs to write the logs and the temporary copy of the Vite config that Vite
+# writes to node_modules/.vite-temp on start-up.
 RUN VITE_REQUEST_LOG=true npx vite build \
  && mkdir -p logs node_modules/.vite-temp \
- && chown -R node:node logs dist node_modules/.vite-temp
+ && chown -R node:node logs node_modules/.vite-temp
 USER node
 EXPOSE 4173
 # Request logs: requests.log and requests/<id>.json.

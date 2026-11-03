@@ -1,4 +1,3 @@
-import { overpassUrl } from "./config";
 import type { Footprint, FootprintSource, LatLng } from "./identification";
 
 
@@ -20,15 +19,22 @@ interface OverpassRelation {
 
 type OverpassElement = OverpassWay | OverpassRelation;
 
+/**
+ * Where the browser sends Overpass queries: the app's own host, which forwards them to the
+ * Overpass server named by OVERPASS_URL (nginx in the production image, Vite otherwise).
+ * See docs/adr/0002-proxy-overpass-through-the-app-host.md.
+ */
+export const OVERPASS_PATH = "/api/interpreter";
+
 export interface OverpassOptions {
-  /** The Overpass interpreter endpoint; defaults to the configured one (see config.ts). */
+  /** The Overpass interpreter endpoint; defaults to the app host's proxy. */
   url?: string;
   fetchFn?: typeof fetch;
 }
 
 /** Footprints from OpenStreetMap, fetched live from an Overpass API server. */
 export function overpassFootprintSource({
-  url = overpassUrl(),
+  url = OVERPASS_PATH,
   fetchFn = fetch.bind(globalThis),
 }: OverpassOptions = {}): FootprintSource {
   return {
