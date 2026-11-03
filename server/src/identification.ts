@@ -1,63 +1,19 @@
-import { angleBetween, bearingOf, destination, localProjection, pointAt, type LatLng, type Point } from "./geo";
-
-export type { LatLng } from "./geo";
-
-/** The moment the user presses the shutter: where they stand and which way they face. */
-export interface Snapshot {
-  position: LatLng;
-  /**
-   * Degrees clockwise from north. On the phone this is magnetic north, as the compass reports
-   * it; the few degrees of declination fall well inside the Sight Cone.
-   */
-  heading: number;
-  /** How far off the position may be, in metres, as the GPS reports it. */
-  accuracyMetres: number;
-}
-
-/** A building's outline on the ground. */
-export interface Footprint {
-  id: string;
-  /** Outer rings; a building made of several parts has several. */
-  rings: LatLng[][];
-  /** The middle of the Footprint, where the building's Location pin goes. */
-  centre: LatLng;
-  name?: string;
-  address?: Address;
-}
-
-/** A building's address parts, as tagged in the map data. */
-export interface Address {
-  street?: string;
-  houseNumber?: string;
-}
+import {
+  angleBetween,
+  bearingOf,
+  destination,
+  localProjection,
+  pointAt,
+  type Footprint,
+  type Identification,
+  type LatLng,
+  type Location,
+  type Point,
+  type Snapshot,
+} from "@whatisthatbuilding/shared";
 
 export interface FootprintSource {
   footprintsAround(centre: LatLng, radiusMetres: number): Promise<Footprint[]>;
-}
-
-/** Where a chosen building is, as handed to the user's maps app. */
-export interface Location {
-  position: LatLng;
-  /** The building's name, else its street and house number; absent when neither is known. */
-  label?: string;
-  /** Opens the Location in the default maps app on Android: a pin at the position, named by the label. */
-  geoUri: string;
-}
-
-export interface Candidate {
-  /** 1-based, nearest first. */
-  number: number;
-  footprint: Footprint;
-  distanceMetres: number;
-  location: Location;
-}
-
-export interface Identification {
-  candidates: Candidate[];
-  /** The Sight Cone that was searched: the user's position, then the far arc from left to right. */
-  sightCone: LatLng[];
-  /** From the user along their heading to the far edge of the Sight Cone. */
-  lineOfSight: { from: LatLng; to: LatLng };
 }
 
 const SIGHT_CONE_RANGE_METRES = 500;

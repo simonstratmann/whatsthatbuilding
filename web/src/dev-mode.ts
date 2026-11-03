@@ -1,8 +1,8 @@
 import L from "leaflet";
 import { showCandidateScreen, type CandidateScreen } from "./candidate-screen";
-import { bearing, destination, type LatLng } from "./geo";
+import { bearing, destination, type LatLng } from "@whatisthatbuilding/shared";
 import { addOsmTiles, fromLeaflet, toLeaflet } from "./leaflet-map";
-import { identifyAndLog, logChoice } from "./logged-identification";
+import { identifyOnServer, logChoice } from "./identify-client";
 import { requestIdLine } from "./request-id";
 
 const START: LatLng = { lat: 52.3745, lon: 9.7386 }; // Kröpcke, Hannover
@@ -68,15 +68,16 @@ export function startDevMode(app: HTMLElement): void {
     candidateScreen = undefined;
     chosenReading.textContent = "";
     candidateArea.innerHTML = `<p class="notice">Looking for buildings…</p>`;
-    const result = await identifyAndLog({ position, heading, accuracyMetres: 0 }, "dev");
+    const result = await identifyOnServer({ position, heading, accuracyMetres: 0 }, "dev");
     button.disabled = false;
     candidateArea.innerHTML = "";
     const screen = document.createElement("div");
-    candidateArea.append(requestIdLine(result.requestId), screen);
+    if (result.requestId) candidateArea.append(requestIdLine(result.requestId));
+    candidateArea.append(screen);
     if ("error" in result) {
       const notice = document.createElement("p");
       notice.className = "notice";
-      notice.textContent = `Couldn't fetch map data: ${String(result.error)}`;
+      notice.textContent = `Couldn't fetch map data: ${result.error}`;
       screen.append(notice);
       return;
     }

@@ -4,6 +4,16 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "start": "node src/main.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.6",
+    "hono": "^4.13.16",
+    "@whatisthatbuilding/shared": "0.1.0"
+  },
+  "exports": {
+    "./config": "./src/config.ts",
+    "./server": "./src/server.ts"
   }
 }

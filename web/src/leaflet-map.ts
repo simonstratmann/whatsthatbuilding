@@ -1,6 +1,6 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import type { LatLng } from "./geo";
+import type { LatLng } from "@whatisthatbuilding/shared";
 
 /** OpenStreetMap tiles, with the attribution OSM requires. */
 export function addOsmTiles(map: L.Map): void {

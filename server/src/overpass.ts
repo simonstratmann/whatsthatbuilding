@@ -1,4 +1,5 @@
-import type { Footprint, FootprintSource, LatLng } from "./identification";
+import type { Footprint, LatLng } from "@whatisthatbuilding/shared";
+import type { FootprintSource } from "./identification.ts";
 
 
 type OsmTags = Partial<Record<string, string>>;
@@ -19,24 +20,23 @@ interface OverpassRelation {
 
 type OverpassElement = OverpassWay | OverpassRelation;
 
+/** Used when OVERPASS_URL is unset or empty. */
+export const PUBLIC_OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+
 /**
- * Where the browser sends Overpass queries: the app's own host, which forwards them to the
- * Overpass server named by OVERPASS_URL (nginx in the production image, Vite otherwise).
- * See docs/adr/0002-proxy-overpass-through-the-app-host.md.
+ * Overpass servers turn away requests that don't say who sends them (the public one with a
+ * 406), and the browser's User-Agent no longer comes along now that the server asks.
  */
-export const OVERPASS_PATH = "/api/interpreter";
+const USER_AGENT = "whatisthatbuilding/0.1 (+https://github.com/simonstratmann/whatsthatbuilding)";
 
 export interface OverpassOptions {
-  /** The Overpass interpreter endpoint; defaults to the app host's proxy. */
-  url?: string;
+  /** The Overpass interpreter endpoint. */
+  url: string;
   fetchFn?: typeof fetch;
 }
 
 /** Footprints from OpenStreetMap, fetched live from an Overpass API server. */
-export function overpassFootprintSource({
-  url = OVERPASS_PATH,
-  fetchFn = fetch.bind(globalThis),
-}: OverpassOptions = {}): FootprintSource {
+export function overpassFootprintSource({ url, fetchFn = fetch.bind(globalThis) }: OverpassOptions): FootprintSource {
   return {
     async footprintsAround(centre, radiusMetres) {
       const around = `around:${Math.round(radiusMetres)},${centre.lat},${centre.lon}`;
@@ -49,6 +49,7 @@ out geom;`;
 
       const response = await fetchFn(url, {
         method: "POST",
+        headers: { "User-Agent": USER_AGENT },
         body: new URLSearchParams({ data: query }),
       });
       if (!response.ok) throw new Error(`Overpass request failed: ${response.status}`);

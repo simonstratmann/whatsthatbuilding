@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { identify, type Footprint, type FootprintSource, type LatLng, type Snapshot } from "./identification";
+import type { Footprint, LatLng, Snapshot } from "@whatisthatbuilding/shared";
+import { identify, type FootprintSource } from "./identification.ts";
 
 // The user stands here in every scenario.
 const ORIGIN: LatLng = { lat: 52.52, lon: 13.405 };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import savedResponse from "./fixtures/overpass-buildings.json";
-import { overpassFootprintSource } from "./overpass";
+import savedResponse from "./fixtures/overpass-buildings.json" with { type: "json" };
+import { overpassFootprintSource } from "./overpass.ts";
 
 /** Matches a coordinate to within about 1 cm. */
 function closeTo(degrees: number) {
@@ -8,9 +8,9 @@ function closeTo(degrees: number) {
 }
 
 function respondingWith(body: unknown, status = 200) {
-  const requests: { url: string; body: string }[] = [];
+  const requests: { url: string; body: string; headers: Headers }[] = [];
   const fetchFn: typeof fetch = async (input, init) => {
-    requests.push({ url: String(input), body: String(init?.body) });
+    requests.push({ url: String(input), body: String(init?.body), headers: new Headers(init?.headers) });
     return new Response(JSON.stringify(body), { status });
   };
   return { fetchFn, requests };
@@ -37,6 +37,17 @@ describe("overpassFootprintSource", () => {
     );
 
     expect(requests.map((r) => r.url)).toEqual(["https://overpass.example.org/api/interpreter"]);
+  });
+
+  it("names the app in its User-Agent, as the public Overpass server requires", async () => {
+    const { fetchFn, requests } = respondingWith({ elements: [] });
+
+    await overpassFootprintSource({ url: "https://overpass.example.org/api/interpreter", fetchFn }).footprintsAround(
+      { lat: 52.52, lon: 13.405 },
+      500,
+    );
+
+    expect(requests[0]!.headers.get("User-Agent")).toMatch(/^whatisthatbuilding\/.+ \(\+https:\/\/github\.com\//);
   });
 
   it("turns a saved Overpass response into Footprints", async () => {

@@ -1,10 +1,10 @@
-# Both serve plain HTTP; put them behind a reverse proxy that terminates SSL.
-# Two images from one Dockerfile:
-#   --target production  → static build served by nginx              (tag: latest)
-#   --target dev         → build with request logging, Vite preview   (tag: dev-latest)
-# Both forward the app's Overpass queries (/api/interpreter) to OVERPASS_URL, read at start-up.
+# Both serve plain HTTP on port 8080; put them behind a reverse proxy that terminates SSL.
+# Two images from one Dockerfile, each a single Node service serving the PWA and its API:
+#   --target production  → no request log                                   (tag: latest)
+#   --target dev         → keeps every request in /app/logs (REQUEST_LOG_DIR) (tag: dev-latest)
+# The server asks the Overpass server named by OVERPASS_URL, read at start-up.
 
-FROM node:24-alpine AS source
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY web/package.json web/
@@ -12,25 +12,28 @@ COPY server/package.json server/
 COPY shared/package.json shared/
 RUN npm ci
 COPY . .
-
-FROM source AS production-build
 RUN npm run build
 
-FROM nginx:1.29-alpine AS production
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
-# The nginx image runs every script in /docker-entrypoint.d/ before starting.
-COPY docker/write-overpass-proxy.sh /docker-entrypoint.d/40-write-overpass-proxy.sh
-COPY --from=production-build /app/web/dist /usr/share/nginx/html
-EXPOSE 80
-
-FROM source AS dev
-# The node user needs to write the logs and the temporary copy of the Vite config that Vite
-# writes to node_modules/.vite-temp on start-up.
-RUN VITE_REQUEST_LOG=true npm run build -w web \
- && mkdir -p logs web/node_modules/.vite-temp \
- && chown -R node:node logs web/node_modules/.vite-temp
+FROM node:24-alpine AS production
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY web/package.json web/
+COPY server/package.json server/
+COPY shared/package.json shared/
+# Only the server's runtime dependencies; Node runs its TypeScript as is.
+RUN npm ci --omit=dev -w server -w shared && npm cache clean --force
+COPY shared/src shared/src
+COPY server/src server/src
+COPY --from=build /app/web/dist web/dist
+ENV NODE_ENV=production PORT=8080
 USER node
-EXPOSE 4173
+EXPOSE 8080
+CMD ["node", "server/src/main.ts"]
+
+FROM production AS dev
+USER root
+RUN mkdir -p logs && chown node:node logs
+USER node
 # Request logs: requests.log and requests/<id>.json.
+ENV REQUEST_LOG_DIR=/app/logs
 VOLUME /app/logs
-ENTRYPOINT ["/app/docker/dev-entrypoint.sh"]

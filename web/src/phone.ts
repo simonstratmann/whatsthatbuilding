@@ -1,5 +1,5 @@
 import { showCandidateScreen } from "./candidate-screen";
-import { identifyAndLog, logChoice } from "./logged-identification";
+import { identifyOnServer, logChoice } from "./identify-client";
 import { requestIdLine } from "./request-id";
 import { showViewfinder } from "./viewfinder";
 
@@ -35,13 +35,13 @@ function startViewfinder(app: HTMLElement): void {
   const viewfinder = showViewfinder(app, async ({ snapshot, orientation }) => {
     viewfinder.destroy();
     app.innerHTML = `<p class="notice">Looking for buildings…</p>`;
-    const result = await identifyAndLog(snapshot, "phone", orientation);
+    const result = await identifyOnServer(snapshot, "phone", orientation);
     app.innerHTML = "";
-    app.append(requestIdLine(result.requestId));
+    if (result.requestId) app.append(requestIdLine(result.requestId));
     if ("error" in result) {
       const notice = document.createElement("p");
       notice.className = "notice";
-      notice.textContent = `Couldn't fetch map data: ${String(result.error)}`;
+      notice.textContent = `Couldn't fetch map data: ${result.error}`;
       app.append(notice);
       return;
     }

@@ -1,33 +1,24 @@
 import basicSsl from "@vitejs/plugin-basic-ssl";
 import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
-import { overpassProxy } from "./dev-server/overpass-proxy.ts";
-import { requestLogPlugin } from "./dev-server/request-log.ts";
-
-/**
- * Host names the preview server answers to, from ALLOWED_HOSTS (comma-separated), for the
- * dev-latest image behind a reverse proxy. Unset keeps Vite's default of local names only.
- */
-const allowedHosts = process.env.ALLOWED_HOSTS?.split(",").map((host) => host.trim()).filter(Boolean);
+import { apiPlugin } from "./dev-server/api.ts";
 
 /** The repo root, where .env.local and logs/ live. */
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 
 export default defineConfig(({ mode }) => {
-  // OVERPASS_URL from the environment or .env.local; server-side only, never in the bundle.
-  const proxy = overpassProxy(loadEnv(mode, repoRoot, "").OVERPASS_URL);
+  // OVERPASS_URL from the environment or .env.local, for the API the dev server runs.
+  const env = loadEnv(mode, repoRoot, "");
   return {
     envDir: repoRoot,
-    // Relative asset paths, so the build runs from any folder on any static HTTPS server.
+    // Relative asset paths, so the build runs from any folder.
     base: "./",
     plugins: [
-      // Keeps every request the app makes while testing in logs/, under the ID it shows.
-      requestLogPlugin(`${repoRoot}logs`),
+      // Keeps every request made while testing in logs/, under the ID the app shows.
+      apiPlugin({ ...env, REQUEST_LOG_DIR: `${repoRoot}logs` }),
       // `--mode https` serves over HTTPS with a self-signed certificate, so a phone on the
       // local network will share its camera and sensors (after accepting the warning).
       ...(mode === "https" ? [basicSsl()] : []),
     ],
-    server: { proxy },
-    preview: { proxy, ...(allowedHosts?.length ? { allowedHosts } : {}) },
   };
 });

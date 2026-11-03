@@ -1,4 +1,13 @@
 {
   "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    // Node runs these files as they are, stripping the types: imports need their .ts
+    // extension and only erasable TypeScript syntax is allowed.
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true
+  },
   "include": ["src"]
 }

@@ -1,11 +1,4 @@
-import type { Snapshot } from "./identification";
-
-/** An absolute device-orientation reading, in degrees, as the DeviceOrientation spec defines it. */
-export interface OrientationReading {
-  alpha: number | null;
-  beta: number | null;
-  gamma: number | null;
-}
+import type { OrientationReading, Snapshot } from "@whatisthatbuilding/shared";
 
 /**
  * Below this horizontal share of the camera's direction (about 78° from level), the phone
