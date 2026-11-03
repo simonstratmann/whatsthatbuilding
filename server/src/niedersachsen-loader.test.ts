@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { niedersachsenLoader, NIEDERSACHSEN_TILES_URL, type NiedersachsenLoader } from "./niedersachsen-loader.ts";
 import { tileName, type TileKey } from "./niedersachsen-tiles.ts";
+import { parseLod2Tile } from "./lod2-parser.ts";
 import { lod2Store, type Lod2Store } from "./lod2-store.ts";
 import { freshDatabase } from "./test-database.ts";
 import { fromUtm32 } from "./utm32.ts";
@@ -47,6 +48,7 @@ function middleOf({ east, north }: TileKey) {
 
 const HANNOVER: TileKey = { east: 550, north: 5803 };
 const IN_BREMEN: TileKey = { east: 487, north: 5882 };
+const IN_HAMBURG: TileKey = { east: 565, north: 5933 };
 
 /**
  * LGLN's bucket: every tile exists except those in `missing`; tiles in `failing` answer 503.
@@ -91,6 +93,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await store.replaceTiles("niedersachsen", (async function* () {})());
+  await store.replaceTiles("hamburg", (async function* () {})());
   cacheDir = await mkdtemp(join(tmpdir(), "lod2-cache-"));
 });
 
@@ -192,6 +195,20 @@ describe("the Niedersachsen Footprint source", () => {
 
     await expect(source.covers(middleOf(failing))).rejects.toThrow(/503/);
     expect(lgln.requested.filter((url) => url.endsWith("LoD2_32_551_5803_1_ni.gml"))).toHaveLength(2);
+  });
+
+  it("answers a Snapshot in Hamburg from Hamburg's tiles while LGLN fails, and tries LGLN again next time", async () => {
+    await store.addTile("hamburg", { ...parseLod2Tile(tileGml(IN_HAMBURG)), name: "LoD2_32_565_5933_1_HH" });
+    const logError = vi.fn();
+    const lgln = fakeLgln({ failing: [IN_HAMBURG] });
+    const { source } = loader(lgln, { logError });
+
+    expect(await source.covers(middleOf(IN_HAMBURG))).toBe(true);
+    expect(logError).toHaveBeenCalledWith(expect.stringContaining(tileName(IN_HAMBURG)), expect.any(Error));
+
+    const footprints = await source.footprintsAround(middleOf(IN_HAMBURG), 0);
+    expect(footprints.map((f) => f.id)).toEqual(["house-565-5933"]);
+    expect(lgln.requested.filter((url) => url.endsWith(`${tileName(IN_HAMBURG)}.gml`))).toHaveLength(2);
   });
 
   it("leaves no partial file in the cache when a download breaks off", async () => {

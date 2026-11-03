@@ -4,7 +4,7 @@ import { exists, saveBody } from "./file-cache.ts";
 import type { FootprintSource } from "./identification.ts";
 import { parseLod2Tile } from "./lod2-parser.ts";
 import type { Lod2Store } from "./lod2-store.ts";
-import { tileName, tilesAround, tilesInBox, type Box, type TileKey } from "./niedersachsen-tiles.ts";
+import { middleOfTile, tileName, tilesAround, tilesInBox, type Box, type TileKey } from "./niedersachsen-tiles.ts";
 
 /** LGLN's bucket of Niedersachsen's LoD2 tiles, one GML file per 1 km tile. */
 export const NIEDERSACHSEN_TILES_URL = "https://lod2.s3.eu-de.cloud-object-storage.appdomain.cloud";
@@ -144,9 +144,20 @@ export function niedersachsenLoader({
     return candidates.filter((tile) => !known.has(tileName(tile)));
   }
 
-  /** Loads the tiles a question needs; the first failure fails it. */
+  /**
+   * Loads the tiles a Snapshot needs; the first failure fails it. A tile whose square another
+   * dataset covers (Hamburg, where LGLN at most has the Niedersachsen side of the border) doesn't:
+   * the Snapshot is answered from what is stored, and the tile is tried again next time. So a
+   * Snapshot in Hamburg doesn't depend on LGLN being up.
+   */
   async function ensure(tiles: TileKey[]): Promise<void> {
-    await Promise.all((await tilesToLoad(tiles)).map(loadOnce));
+    await Promise.all(
+      (await tilesToLoad(tiles)).map((tile) =>
+        loadOnce(tile).catch(async (error: unknown) => {
+          if (!(await store.covers(middleOfTile(tile)))) throw error;
+        }),
+      ),
+    );
   }
 
   async function load(tiles: TileKey[]): Promise<LoadResult> {

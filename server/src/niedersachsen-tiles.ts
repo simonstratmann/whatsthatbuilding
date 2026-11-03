@@ -1,5 +1,5 @@
 import type { LatLng } from "@whatisthatbuilding/shared";
-import { toUtm32 } from "./utm32.ts";
+import { fromUtm32, toUtm32 } from "./utm32.ts";
 
 /**
  * One of LGLN's 1 km LoD2 tiles of Niedersachsen, named by its lower-left corner in UTM32
@@ -23,6 +23,11 @@ const TILE_METRES = 1000;
 /** The tile's file name in LGLN's bucket, without .gml, e.g. "LoD2_32_550_5803_1_ni". */
 export function tileName({ east, north }: TileKey): string {
   return `LoD2_32_${east}_${north}_1_ni`;
+}
+
+/** The middle of the tile's square. */
+export function middleOfTile({ east, north }: TileKey): LatLng {
+  return fromUtm32({ east: east * TILE_METRES + TILE_METRES / 2, north: north * TILE_METRES + TILE_METRES / 2 });
 }
 
 /**
