@@ -1,5 +1,7 @@
 # Proxy Overpass through the app's own host
 
+Superseded by [0003](0003-identify-on-a-backend-with-its-own-building-data.md).
+
 The browser sends its Overpass queries to `/api/interpreter` on the host that serves the app, and that host forwards them to the Overpass server named by `OVERPASS_URL` (nginx in the production image, Vite's proxy in the dev image and local dev). Identification still runs in the browser; only the transport moved. The Overpass server then needs no public hostname, HTTPS or CORS headers, so a self-hosted instance can sit next to the app on an internal network (`http://overpass:8080/api/interpreter` in the same Compose project), and it no longer sees each user's IP address.
 
 Before this, the browser called Overpass directly and learned its URL from a `config.js` written at start-up. Internal addresses and URLs without the `/api/interpreter` path then failed in the browser as an opaque "NetworkError", which is hard to diagnose from a phone.
