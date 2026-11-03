@@ -88,7 +88,7 @@ export interface Location {
 }
 
 export interface Candidate {
-  /** 1-based, nearest first. */
+  /** 1-based, in rank order: Candidates the user can see nearest first, then Hidden Candidates nearest first. */
   number: number;
   footprint: Footprint;
   distanceMetres: number;

@@ -12,7 +12,7 @@ export interface CandidateScreen {
 
 /**
  * The Candidates of one Snapshot: a mini-map of the user's position, Line of Sight, Sight Cone
- * and numbered Footprints, above a list nearest first. Tapping a Footprint or a list entry
+ * and numbered Footprints, above a list in rank order. Tapping a Footprint or a list entry
  * chooses that Candidate.
  */
 export function showCandidateScreen(

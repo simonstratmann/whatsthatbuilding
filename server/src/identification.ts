@@ -76,11 +76,16 @@ export async function identify(
   const toLocal = localProjection(snapshot.position);
   const cone = sightConeOverlapTest(snapshot.heading);
 
-  const candidates = footprints
+  const inCone = footprints
     .map((footprint) => ({ footprint, rings: footprint.rings.map((ring) => ring.map(toLocal)) }))
     .filter(({ rings }) => rings.some((ring) => cone.overlaps(ring)))
-    .map(({ footprint, rings }) => ({ footprint, distanceMetres: distanceToRings(rings) }))
-    .sort((a, b) => a.distanceMetres - b.distanceMetres)
+    .map((found) => ({ ...found, distanceMetres: distanceToRings(found.rings) }));
+  const isHidden = hiddenTest(inCone, snapshot.heading);
+
+  const candidates = inCone
+    .map((found) => ({ ...found, hidden: isHidden(found) }))
+    // Candidates the user can see first, then Hidden Candidates; nearest first within each.
+    .sort((a, b) => Number(a.hidden) - Number(b.hidden) || a.distanceMetres - b.distanceMetres)
     .slice(0, MAX_CANDIDATES)
     .map(({ footprint, distanceMetres }, index) => {
       const name = names?.nameOf(footprint);
@@ -168,6 +173,100 @@ function sightConeOverlapTest(heading: number) {
       return ringContains(ring, pointInside);
     },
   };
+}
+
+/** A Footprint in the Sight Cone, in metres around the user. */
+interface FootprintInCone {
+  footprint: Footprint;
+  rings: Point[][];
+  distanceMetres: number;
+}
+
+/** One that can hide others and be hidden: of known height, and not where the user stands. */
+type Obstacle = FootprintInCone & { footprint: { heightMetres: number } };
+
+function isObstacle(inCone: FootprintInCone): inCone is Obstacle {
+  return inCone.footprint.heightMetres !== undefined && inCone.distanceMetres > 0;
+}
+
+const EYE_HEIGHT_METRES = 1.6;
+/** Looking across a Footprint's span, the bearings looked along are at most this far apart… */
+const MAX_DEGREES_BETWEEN_BEARINGS = 0.5;
+/** …and at least this many. */
+const MIN_BEARINGS = 9;
+
+/**
+ * Tells Hidden Candidates: seen from eye height at the user's position, a Footprint is hidden when
+ * along every bearing that meets it within the Sight Cone, a nearer Footprint rises to a higher
+ * elevation angle than its top. Heights are above each building's own ground, so the ground counts
+ * as flat. Footprints of unknown height are never hidden and hide nothing, nor does one the user
+ * stands in. A gap between two nearer Footprints narrower than the spacing of the bearings can be missed.
+ */
+function hiddenTest(inCone: FootprintInCone[], heading: number): (target: FootprintInCone) => boolean {
+  const obstacles = inCone.filter(isObstacle);
+
+  return (target) => {
+    if (!isObstacle(target)) return false;
+    let metAlongAny = false;
+    for (const bearing of bearingsAcross(target.rings, heading)) {
+      const direction = pointAt(bearing, 1);
+      const reach = entryAlong(target.rings, direction);
+      if (reach === Infinity) continue;
+      metAlongAny = true;
+      const top = elevationAngle(target.footprint.heightMetres, reach);
+      const blocked = obstacles.some((obstacle) => {
+        if (obstacle === target) return false;
+        const obstacleReach = entryAlong(obstacle.rings, direction);
+        return obstacleReach < reach && elevationAngle(obstacle.footprint.heightMetres, obstacleReach) > top;
+      });
+      if (!blocked) return false;
+    }
+    return metAlongAny;
+  };
+}
+
+/** Evenly spread bearings across the part of the Sight Cone the rings cover, from edge to edge. */
+function bearingsAcross(rings: Point[][], heading: number): number[] {
+  const [from, to] = spanInSightCone(rings, heading);
+  const count = Math.max(MIN_BEARINGS, Math.ceil((to - from) / MAX_DEGREES_BETWEEN_BEARINGS) + 1);
+  // A hair inside each edge, so the outermost bearings don't just graze a corner.
+  const inset = (to - from) / 1000;
+  return Array.from({ length: count }, (_, i) => heading + from + inset + ((to - from - 2 * inset) * i) / (count - 1));
+}
+
+/** Radians above the horizontal, from eye height, to a top `heightMetres` up and `distance` away. */
+function elevationAngle(heightMetres: number, distance: number): number {
+  return Math.atan2(heightMetres - EYE_HEIGHT_METRES, distance);
+}
+
+/**
+ * The bearings the rings cover within the Sight Cone, in degrees either side of the heading.
+ * Rings reaching round beside or behind the user get the whole cone; bearings that miss them are skipped.
+ */
+function spanInSightCone(rings: Point[][], heading: number): [number, number] {
+  const offsets = rings.flat().map((p) => angleBetween(bearingOf(p), heading));
+  const low = Math.min(...offsets);
+  const high = Math.max(...offsets);
+  if (low < -90 || high > 90) return [-SIGHT_CONE_HALF_ANGLE_DEGREES, SIGHT_CONE_HALF_ANGLE_DEGREES];
+  return [Math.max(low, -SIGHT_CONE_HALF_ANGLE_DEGREES), Math.min(high, SIGHT_CONE_HALF_ANGLE_DEGREES)];
+}
+
+/** How far from the user the bearing along unit vector `direction` first meets the rings; Infinity if it never does. */
+function entryAlong(rings: Point[][], direction: Point): number {
+  let nearest = Infinity;
+  for (const ring of rings) {
+    for (const [a, b] of edges(ring)) {
+      const ex = b.x - a.x;
+      const ey = b.y - a.y;
+      const across = direction.x * ey - direction.y * ex;
+      if (across === 0) continue;
+      // Solve t·direction = a + s·(b − a) for t (along the bearing) and s (along the edge).
+      const t = (a.x * ey - a.y * ex) / across;
+      const s = (a.x * direction.y - a.y * direction.x) / across;
+      if (t > 0 && s >= 0 && s <= 1) nearest = Math.min(nearest, t);
+    }
+  }
+  return nearest;
 }
 
 /** The part of segment a–b no farther than `radius` from the user, or null if none is. */

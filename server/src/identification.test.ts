@@ -18,7 +18,7 @@ function building(
   south: number,
   east: number,
   north: number,
-  tags: Pick<Footprint, "address" | "functionCode"> = {},
+  tags: Pick<Footprint, "address" | "functionCode" | "heightMetres"> = {},
 ): Footprint {
   return {
     id,
@@ -90,15 +90,74 @@ describe("identify", () => {
     expect(candidates.map((c) => c.footprint.id)).toEqual(["warehouse"]);
   });
 
-  it("offers a tower hidden behind a shop as well as the shop, nearest first", async () => {
-    const tower = building("tower", -15, 250, 15, 280);
-    const shop = building("shop", -10, 40, 10, 50);
+  it("offers a tower rising behind a shop as well as the shop, nearest first", async () => {
+    const tower = building("tower", -15, 250, 15, 280, { heightMetres: 60 });
+    const shop = building("shop", -10, 40, 10, 50, { heightMetres: 10 });
 
     const { candidates } = await identify(facing(0), sourceOf(tower, shop));
 
     expect(candidates.map((c) => [c.number, c.footprint.id])).toEqual([
       [1, "shop"],
       [2, "tower"],
+    ]);
+  });
+
+  it("ranks a tall building behind a low one above a nearer building the low one hides", async () => {
+    // From eye height the shop's top is 12° up; the house behind it reaches 4°, the tower 21°.
+    const shop = building("shop", -30, 40, 30, 50, { heightMetres: 10 });
+    const house = building("house", -10, 100, 10, 110, { heightMetres: 8 });
+    const tower = building("tower", -15, 250, 15, 280, { heightMetres: 100 });
+
+    const { candidates } = await identify(facing(0), sourceOf(tower, house, shop));
+
+    expect(candidates.map((c) => [c.number, c.footprint.id])).toEqual([
+      [1, "shop"],
+      [2, "tower"],
+      [3, "house"],
+    ]);
+  });
+
+  it("keeps a fully hidden building in the list, below the visible ones", async () => {
+    const shop = building("shop", -6, 40, 6, 50, { heightMetres: 10 });
+    const hidden = building("hidden", -5, 60, 5, 70, { heightMetres: 5 });
+    // Off to the side of the shop, so nothing stands in front of it.
+    const shed = building("shed", 20, 90, 24, 94, { heightMetres: 3 });
+
+    const { candidates } = await identify(facing(0), sourceOf(hidden, shed, shop));
+
+    expect(candidates.map((c) => c.footprint.id)).toEqual(["shop", "shed", "hidden"]);
+  });
+
+  it("counts a building as visible when only one edge of its span in the Sight Cone is hidden", async () => {
+    // The shop covers the left of the cone; the long block behind it shows over the right.
+    const shop = building("shop", -30, 50, -3, 60, { heightMetres: 10 });
+    const block = building("block", -100, 200, 100, 210, { heightMetres: 12 });
+    const behindShop = building("behind shop", -15, 100, -10, 105, { heightMetres: 5 });
+
+    const { candidates } = await identify(facing(0), sourceOf(block, behindShop, shop));
+
+    expect(candidates.map((c) => c.footprint.id)).toEqual(["shop", "block", "behind shop"]);
+  });
+
+  it("treats buildings of unknown height as visible, and as hiding nothing", async () => {
+    const unknownShop = building("unknown shop", -20, 40, 20, 50);
+    const behindUnknown = building("behind unknown", -5, 60, 5, 70, { heightMetres: 3 });
+    const tallShop = building("tall shop", -20, 150, 20, 160, { heightMetres: 30 });
+    const unknownBehindTall = building("unknown behind tall", -5, 200, 5, 210);
+    // Shows over the tall shop, so it would rank above the building behind the shop were that hidden.
+    const tower = building("tower", -10, 300, 10, 310, { heightMetres: 100 });
+
+    const { candidates } = await identify(
+      facing(0),
+      sourceOf(tower, unknownBehindTall, tallShop, behindUnknown, unknownShop),
+    );
+
+    expect(candidates.map((c) => c.footprint.id)).toEqual([
+      "unknown shop",
+      "behind unknown",
+      "tall shop",
+      "unknown behind tall",
+      "tower",
     ]);
   });
 
@@ -117,6 +176,28 @@ describe("identify", () => {
       [6, "house-6"],
       [7, "house-7"],
       [8, "house-8"],
+    ]);
+  });
+
+  it("caps the list at 8 after ranking, so a hidden building can drop off it", async () => {
+    // Ten houses straight ahead, each taller than the one before, so every one shows over the last.
+    const houses = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) =>
+      building(`house-${n}`, -5, n * 30, 5, n * 30 + 10, { heightMetres: 10 * n }),
+    );
+    // Nearer than all but the first house, and hidden behind it.
+    const shed = building("shed", -2, 45, 2, 50, { heightMetres: 3 });
+
+    const { candidates } = await identify(facing(0), sourceOf(shed, ...houses));
+
+    expect(candidates.map((c) => c.footprint.id)).toEqual([
+      "house-1",
+      "house-2",
+      "house-3",
+      "house-4",
+      "house-5",
+      "house-6",
+      "house-7",
+      "house-8",
     ]);
   });
 
