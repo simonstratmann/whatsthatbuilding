@@ -1,5 +1,5 @@
 import { identifyOnServer } from "./identify-client.ts";
-import { showResultScreen } from "./result-screen.ts";
+import { showIdentificationScreen } from "./identification-screen.ts";
 import { showViewfinder } from "./viewfinder.ts";
 
 /**
@@ -34,8 +34,8 @@ function startViewfinder(app: HTMLElement): void {
   const viewfinder = showViewfinder(app, async ({ snapshot, orientation }) => {
     viewfinder.destroy();
     app.innerHTML = `<p class="notice">Looking for buildings…</p>`;
-    const result = await identifyOnServer(snapshot, "phone", orientation);
-    showResultScreen(app, result, { className: "candidate-screen" });
+    const attempt = await identifyOnServer(snapshot, "phone", orientation);
+    showIdentificationScreen(app, attempt, { className: "candidate-screen" });
   });
 }
 

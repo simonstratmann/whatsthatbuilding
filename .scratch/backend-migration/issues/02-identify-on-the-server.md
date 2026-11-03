@@ -20,8 +20,8 @@
 - Done with Hono on Node 24, which runs the server's TypeScript as is (no build step). `npm run dev` runs the API inside the Vite dev server (a plugin in `web/dev-server/api.ts`), so there's one process. Server code changes need a restart.
 - The request log moved to the server: it records the Overpass traffic itself and gives out the request ID. `REQUEST_LOG_DIR` turns it on (set in the dev image and in `npm run dev`). Choices go to `POST /api/choice`.
 - The server sends a User-Agent naming the app to Overpass. Without one the public server answers 406; the browser's User-Agent used to pass through the proxy.
-- Left open: the response has no `warnings` field and the Snapshot has no compass-calibration state, because neither exists in the app yet (behaviour is unchanged). Ticket 03 adds the first warning (outside the Coverage Area); calibration state needs the viewfinder to report it first.
+- Left open: the response has no `warnings` field and the Snapshot has no compass-calibration state, because neither exists in the app yet (behaviour is unchanged). Both move to ticket 03, which adds the first warning (outside the Coverage Area) and has the viewfinder report its calibration state.
 - Choices are now sent to `POST /api/choice` from every build; the server drops them unless the request log is on.
 - The image listens on 8080 as the `node` user, and Compose maps 8080→8080 and 4173→8080. The dev image no longer needs `ALLOWED_HOSTS`/`DEV_HOST`.
-- Request IDs use the server's local time, which is UTC in the container unless `TZ` is set.
+- Request IDs use the server's local time; the image sets `TZ=Europe/Berlin`.
 - Still to check by hand: a Snapshot on the phone.

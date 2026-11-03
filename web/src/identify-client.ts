@@ -4,16 +4,13 @@ import {
   type Candidate,
   type ChoiceReport,
   type IdentifyRequest,
-  type Identification,
   type IdentifyResponse,
   type OrientationReading,
   type Snapshot,
 } from "@whatisthatbuilding/shared";
 
-/** What the screens show after a Snapshot; the request ID is missing only when the server couldn't be reached. */
-export type IdentifyResult =
-  | { requestId: string; identification: Identification }
-  | { requestId?: string; error: string };
+/** What sending a Snapshot came to: the server's answer, or why it couldn't be reached (no request ID then). */
+export type IdentifyAttempt = IdentifyResponse | { requestId?: undefined; error: string };
 
 /**
  * Sends the Snapshot to the server, which identifies it and keeps it in its request log
@@ -23,7 +20,7 @@ export async function identifyOnServer(
   snapshot: Snapshot,
   mode: IdentifyRequest["mode"],
   orientation?: OrientationReading,
-): Promise<IdentifyResult> {
+): Promise<IdentifyAttempt> {
   const request: IdentifyRequest = { snapshot, mode, ...(orientation ? { orientation } : {}) };
   try {
     const response = await fetch(IDENTIFY_PATH, {

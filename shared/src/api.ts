@@ -35,15 +35,22 @@ export interface IdentifyRequest {
   orientation?: OrientationReading;
 }
 
+/** What identifying a Snapshot came to: the Identification, or why there is none. */
+export type IdentificationOutcome = { identification: Identification } | { error: string };
+
 /**
  * Every answer carries the request ID, which the screen shows so a test can be looked up in
  * the server's request log. A failed identification (status 502) carries the error instead.
  */
-export type IdentifyResponse =
-  | { requestId: string; identification: Identification }
-  | { requestId: string; error: string };
+export type IdentifyResponse = { requestId: string } & IdentificationOutcome;
 
-/** A building's outline on the ground. */
+/**
+ * A building's outline on the ground.
+ *
+ * Interim: the glossary and ADR 0003 have Footprints come from the LoD2 building model, with
+ * height and function. Until that lands (ticket 03) they come from OpenStreetMap, so this
+ * carries OSM's name and tagged address instead.
+ */
 export interface Footprint {
   id: string;
   /** Outer rings; a building made of several parts has several. */
@@ -54,7 +61,7 @@ export interface Footprint {
   address?: Address;
 }
 
-/** A building's address parts, as tagged in the map data. */
+/** A building's address parts, as tagged in OpenStreetMap for now (see Footprint). */
 export interface Address {
   street?: string;
   houseNumber?: string;

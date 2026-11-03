@@ -25,7 +25,7 @@ const SIGHT_CONE_ARC_STEPS = 12;
 export async function identify(snapshot: Snapshot, source: FootprintSource): Promise<Identification> {
   const footprints = await source.footprintsAround(snapshot.position, SIGHT_CONE_RANGE_METRES);
   const toLocal = localProjection(snapshot.position);
-  const cone = sightCone(snapshot.heading);
+  const cone = sightConeOverlapTest(snapshot.heading);
 
   const candidates = footprints
     .map((footprint) => ({ footprint, rings: footprint.rings.map((ring) => ring.map(toLocal)) }))
@@ -84,10 +84,10 @@ function sightConeBoundary({ position, heading }: Snapshot): LatLng[] {
 }
 
 /**
- * The Sight Cone, with the user at its apex. A ring overlaps it when one of the ring's
+ * Tests rings against the Sight Cone, with the user at its apex. A ring overlaps it when one of the ring's
  * edges passes through the cone, or when the whole cone lies inside the ring.
  */
-function sightCone(heading: number) {
+function sightConeOverlapTest(heading: number) {
   const pointInside = pointAt(heading, SIGHT_CONE_RANGE_METRES / 2);
   const withinAngle = (p: Point) =>
     Math.abs(angleBetween(bearingOf(p), heading)) <= SIGHT_CONE_HALF_ANGLE_DEGREES;

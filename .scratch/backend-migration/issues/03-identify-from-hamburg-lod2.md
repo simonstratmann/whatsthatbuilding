@@ -6,6 +6,7 @@
 
 **Status:** ready-for-agent
 
+- [ ] The API contract from ticket 02 is completed: the `POST /api/identify` response carries `warnings` (the first being outside the Coverage Area), and the Snapshot carries the compass-calibration state, which the viewfinder reports, all typed in `shared`
 - [ ] PostGIS runs in Compose (prod and dev) and the schema is created automatically
 - [ ] The Hamburg import command loads all tiles and can be re-run to replace the previous import
 - [ ] The parser is tested on a small saved Hamburg CityGML excerpt: outline, height, function and address come out right in WGS84

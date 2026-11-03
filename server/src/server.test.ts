@@ -5,25 +5,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChoiceReport, Footprint, IdentifyRequest, IdentifyResponse, LatLng } from "@whatisthatbuilding/shared";
 import type { FootprintSource } from "./identification.ts";
 import { startServer, type RunningServer } from "./server.ts";
+import { offsetFrom } from "./test-geo.ts";
 
 const ORIGIN: LatLng = { lat: 52.3745, lon: 9.7386 };
-const METRES_PER_DEGREE_LAT = 111_320;
 
 /** A 20 m square building `north` metres north of ORIGIN. */
 function buildingNorth(id: string, north: number, tags: Pick<Footprint, "name" | "address"> = {}): Footprint {
-  const lat = (metres: number) => ORIGIN.lat + metres / METRES_PER_DEGREE_LAT;
-  const lon = (metres: number) => ORIGIN.lon + metres / (METRES_PER_DEGREE_LAT * Math.cos((ORIGIN.lat * Math.PI) / 180));
+  const at = (east: number, northOfUser: number) => offsetFrom(ORIGIN, east, northOfUser);
   return {
     id,
-    rings: [
-      [
-        { lat: lat(north), lon: lon(-10) },
-        { lat: lat(north), lon: lon(10) },
-        { lat: lat(north + 20), lon: lon(10) },
-        { lat: lat(north + 20), lon: lon(-10) },
-      ],
-    ],
-    centre: { lat: lat(north + 10), lon: lon(0) },
+    rings: [[at(-10, north), at(10, north), at(10, north + 20), at(-10, north + 20)]],
+    centre: at(0, north + 10),
     ...tags,
   };
 }
@@ -108,6 +100,14 @@ describe("POST /api/identify", () => {
       candidates: [{ number: 1, footprintId: "opera", label: "Opernhaus" }],
       chosen: report.choice,
     });
+  });
+
+  it("refuses a choice whose request ID could name a path outside the log folder", async () => {
+    const url = await start({ footprintsAround: async () => [] });
+    const choice = { number: 1, footprintId: "opera", at: "2026-11-03T18:00:00.000Z" };
+
+    expect((await post(`${url}/api/choice`, { requestId: "../../etc/passwd", choice })).status).toBe(400);
+    expect((await post(`${url}/api/choice`, { requestId: "20261103-180000-abcd", choice: { number: "1" } })).status).toBe(400);
   });
 });
 

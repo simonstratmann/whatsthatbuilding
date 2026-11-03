@@ -1,17 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { Footprint, LatLng, Snapshot } from "@whatisthatbuilding/shared";
 import { identify, type FootprintSource } from "./identification.ts";
+import { metresFrom, offsetFrom } from "./test-geo.ts";
 
 // The user stands here in every scenario.
 const ORIGIN: LatLng = { lat: 52.52, lon: 13.405 };
-const METRES_PER_DEGREE_LAT = 111_320;
 
 /** A point `east` / `north` metres from ORIGIN. */
 function offset(east: number, north: number): LatLng {
-  return {
-    lat: ORIGIN.lat + north / METRES_PER_DEGREE_LAT,
-    lon: ORIGIN.lon + east / (METRES_PER_DEGREE_LAT * Math.cos((ORIGIN.lat * Math.PI) / 180)),
-  };
+  return offsetFrom(ORIGIN, east, north);
 }
 
 /** A rectangular Footprint spanning the given metre offsets from ORIGIN. */
@@ -232,10 +229,7 @@ describe("identify", () => {
 });
 
 function toMetres(p: LatLng): { east: number; north: number } {
-  return {
-    east: (p.lon - ORIGIN.lon) * METRES_PER_DEGREE_LAT * Math.cos((ORIGIN.lat * Math.PI) / 180),
-    north: (p.lat - ORIGIN.lat) * METRES_PER_DEGREE_LAT,
-  };
+  return metresFrom(ORIGIN, p);
 }
 
 function bearingFromOrigin(p: LatLng): number {

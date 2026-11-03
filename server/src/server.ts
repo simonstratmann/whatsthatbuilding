@@ -11,7 +11,7 @@ import {
 import { Hono } from "hono";
 import { identify, type FootprintSource } from "./identification.ts";
 import { recordingOverpassFetch } from "./overpass.ts";
-import { finishRecord, newRequestId, startRecord, writeRequestLog } from "./request-log.ts";
+import { finishRecord, isRequestId, newRequestId, startRecord, writeRequestLog } from "./request-log.ts";
 
 export interface AppOptions {
   /**
@@ -51,8 +51,8 @@ export function createApp({ footprintSource, requestLogDir, webRoot }: AppOption
 
   app.post(CHOICE_PATH, async (c) => {
     // sendBeacon may send it as text/plain, so don't insist on a JSON content type.
-    const report = (await c.req.text().then(JSON.parse).catch(() => undefined)) as ChoiceReport | undefined;
-    if (!report?.requestId || !report.choice) return c.body(null, 400);
+    const report = asChoiceReport(await c.req.text().then(JSON.parse).catch(() => undefined));
+    if (!report) return c.body(null, 400);
     if (requestLogDir) {
       await logSafely(writeRequestLog(requestLogDir, { kind: "choice", id: report.requestId, choice: report.choice }));
     }
@@ -100,6 +100,21 @@ function asIdentifyRequest(body: unknown): IdentifyRequest | undefined {
     return undefined;
   }
   return request as IdentifyRequest;
+}
+
+function asChoiceReport(body: unknown): ChoiceReport | undefined {
+  const report = body as Partial<ChoiceReport> | undefined;
+  const choice = report?.choice;
+  if (
+    !isRequestId(report?.requestId) ||
+    !choice ||
+    !Number.isInteger(choice.number) ||
+    typeof choice.footprintId !== "string" ||
+    typeof choice.at !== "string"
+  ) {
+    return undefined;
+  }
+  return report as ChoiceReport;
 }
 
 export interface RunningServer {

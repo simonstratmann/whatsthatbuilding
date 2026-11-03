@@ -25,7 +25,8 @@ RUN npm ci --omit=dev -w server -w shared && npm cache clean --force
 COPY shared/src shared/src
 COPY server/src server/src
 COPY --from=build /app/web/dist web/dist
-ENV NODE_ENV=production PORT=8080
+# Request IDs carry the local time, as they did when the browser made them; Node has its own time zone data.
+ENV NODE_ENV=production PORT=8080 TZ=Europe/Berlin
 USER node
 EXPOSE 8080
 CMD ["node", "server/src/main.ts"]

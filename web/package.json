@@ -4,11 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
-    "dev:https": "vite --host --mode https",
-    "build": "vite build",
-    "preview": "vite preview --host",
-    "preview:https": "vite build --mode https && vite preview --host --mode https",
+    "dev": "vite --host --configLoader runner",
+    "dev:https": "vite --host --mode https --configLoader runner",
+    "build": "vite build --configLoader runner",
+    "preview": "vite preview --host --configLoader runner",
+    "preview:https": "vite build --mode https --configLoader runner && vite preview --host --mode https --configLoader runner",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json"
   },
   "devDependencies": {

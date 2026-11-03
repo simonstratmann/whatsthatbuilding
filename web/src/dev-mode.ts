@@ -3,7 +3,7 @@ import type { CandidateScreen } from "./candidate-screen.ts";
 import { bearing, destination, type LatLng } from "@whatisthatbuilding/shared";
 import { identifyOnServer } from "./identify-client.ts";
 import { addOsmTiles, fromLeaflet, toLeaflet } from "./leaflet-map.ts";
-import { showResultScreen } from "./result-screen.ts";
+import { showIdentificationScreen } from "./identification-screen.ts";
 
 const START: LatLng = { lat: 52.3745, lon: 9.7386 }; // Kröpcke, Hannover
 const HANDLE_DISTANCE_METRES = 150;
@@ -68,9 +68,9 @@ export function startDevMode(app: HTMLElement): void {
     candidateScreen = undefined;
     chosenReading.textContent = "";
     candidateArea.innerHTML = `<p class="notice">Looking for buildings…</p>`;
-    const result = await identifyOnServer({ position, heading, accuracyMetres: 0 }, "dev");
+    const attempt = await identifyOnServer({ position, heading, accuracyMetres: 0 }, "dev");
     button.disabled = false;
-    candidateScreen = showResultScreen(candidateArea, result, {
+    candidateScreen = showIdentificationScreen(candidateArea, attempt, {
       onChoose: (candidate) => {
         chosenReading.textContent = `Chose Candidate ${candidate.number} (${candidate.footprint.id}): ${candidate.location.geoUri}`;
       },

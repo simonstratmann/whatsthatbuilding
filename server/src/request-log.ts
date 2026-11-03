@@ -1,6 +1,6 @@
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Choice, Identification, IdentifyRequest, LatLng, OrientationReading, Snapshot } from "@whatisthatbuilding/shared";
+import type { Choice, IdentificationOutcome, IdentifyRequest, LatLng, OrientationReading, Snapshot } from "@whatisthatbuilding/shared";
 import type { OverpassExchange } from "./overpass.ts";
 
 /**
@@ -37,6 +37,10 @@ export type RequestLogMessage =
 /** Request IDs as newRequestId makes them; anything else could name a path outside the log folder. */
 const REQUEST_ID = /^[A-Za-z0-9-]{1,64}$/;
 
+export function isRequestId(value: unknown): value is string {
+  return typeof value === "string" && REQUEST_ID.test(value);
+}
+
 /** Local date and time, then a random suffix: sorts by time and is short enough to read out. */
 export function newRequestId(now = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -70,7 +74,7 @@ export function startRecord(
 /** Adds the Candidates, or the error, and how long the request took. */
 export function finishRecord(
   record: RequestRecord,
-  outcome: { identification: Identification } | { error: string },
+  outcome: IdentificationOutcome,
   finishedAt = new Date(),
 ): void {
   if ("error" in outcome) {
@@ -94,7 +98,7 @@ export function finishRecord(
  */
 export async function writeRequestLog(dir: string, message: RequestLogMessage): Promise<void> {
   const id = message.kind === "request" ? message.record.id : message.id;
-  if (!REQUEST_ID.test(id)) throw new Error(`Not a request ID: ${JSON.stringify(id)}`);
+  if (!isRequestId(id)) throw new Error(`Not a request ID: ${JSON.stringify(id)}`);
   const requests = join(dir, "requests");
   const file = join(requests, `${id}.json`);
   await mkdir(requests, { recursive: true });

@@ -1,8 +1,8 @@
 import type { Candidate } from "@whatisthatbuilding/shared";
 import { showCandidateScreen, type CandidateScreen } from "./candidate-screen.ts";
-import { logChoice, type IdentifyResult } from "./identify-client.ts";
+import { logChoice, type IdentifyAttempt } from "./identify-client.ts";
 
-export interface ResultScreenOptions {
+export interface IdentificationScreenOptions {
   /** Class of the element the Candidates or the error go in. */
   className?: string;
   /** Called when the user chooses a Candidate, just before its Location goes to the maps app. */
@@ -14,26 +14,26 @@ export interface ResultScreenOptions {
  * Candidates or why there are none. Choosing a Candidate logs the choice and opens its
  * Location in the maps app.
  */
-export function showResultScreen(
+export function showIdentificationScreen(
   container: HTMLElement,
-  result: IdentifyResult,
-  { className, onChoose }: ResultScreenOptions = {},
+  attempt: IdentifyAttempt,
+  { className, onChoose }: IdentificationScreenOptions = {},
 ): CandidateScreen {
   container.innerHTML = "";
-  if (result.requestId) container.append(requestIdLine(result.requestId));
+  if (attempt.requestId) container.append(requestIdLine(attempt.requestId));
   const screen = document.createElement("div");
   if (className) screen.className = className;
   container.append(screen);
 
-  if ("error" in result) {
+  if ("error" in attempt) {
     const notice = document.createElement("p");
     notice.className = "notice";
-    notice.textContent = `Couldn't fetch map data: ${result.error}`;
+    notice.textContent = `Couldn't fetch map data: ${attempt.error}`;
     screen.append(notice);
     return { destroy() {} };
   }
-  const { requestId } = result;
-  return showCandidateScreen(screen, result.identification, (candidate) => {
+  const { requestId } = attempt;
+  return showCandidateScreen(screen, attempt.identification, (candidate) => {
     logChoice(requestId, candidate);
     onChoose?.(candidate);
     // On a desktop browser this may ask which app should open it.
