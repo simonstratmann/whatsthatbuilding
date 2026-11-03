@@ -67,7 +67,7 @@ export interface Footprint {
   /** The AdV building function code, e.g. "31001_1000" (Wohnhaus). */
   functionCode?: string;
   address?: Address;
-  /** The building's name. The building model has none; names will come from OpenStreetMap. */
+  /** The building's name, from OpenStreetMap; the building model has none. Only Candidates carry it. */
   name?: string;
 }
 

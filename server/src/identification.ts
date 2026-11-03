@@ -2,8 +2,10 @@ import {
   angleBetween,
   bearingOf,
   destination,
+  edges,
   localProjection,
   pointAt,
+  ringContains,
   type Footprint,
   type Identification,
   type LatLng,
@@ -18,13 +20,35 @@ export interface FootprintSource {
   footprintsAround(centre: LatLng, radiusMetres: number): Promise<Footprint[]>;
 }
 
+/** Where building names come from: OpenStreetMap, or a fake in tests. */
+export interface LabelSource {
+  /** The names known within `radiusMetres` of the centre, ready to be matched to Footprints there. */
+  namesAround(centre: LatLng, radiusMetres: number): Promise<Names>;
+}
+
+export interface Names {
+  /** The Footprint's name, if one is known. */
+  nameOf(footprint: Footprint): string | undefined;
+}
+
+/** Knows no names: every Candidate is labelled by its address. */
+export const NO_NAMES: LabelSource = { namesAround: async () => ({ nameOf: () => undefined }) };
+
 const SIGHT_CONE_RANGE_METRES = 500;
 const SIGHT_CONE_HALF_ANGLE_DEGREES = 15;
 const MAX_CANDIDATES = 8;
 const USER: Point = { x: 0, y: 0 };
 const SIGHT_CONE_ARC_STEPS = 12;
 
-export async function identify(snapshot: Snapshot, source: FootprintSource): Promise<Identification> {
+/**
+ * The Candidates for a Snapshot. Names are a nicety: when the Label source fails, Candidates
+ * are labelled by their addresses (whoever passes the source in logs the failure).
+ */
+export async function identify(
+  snapshot: Snapshot,
+  source: FootprintSource,
+  labels: LabelSource = NO_NAMES,
+): Promise<Identification> {
   const searched = {
     sightCone: sightConeBoundary(snapshot),
     lineOfSight: {
@@ -32,10 +56,12 @@ export async function identify(snapshot: Snapshot, source: FootprintSource): Pro
       to: destination(snapshot.position, snapshot.heading, SIGHT_CONE_RANGE_METRES),
     },
   };
-  // Both at once: a source that first has to download building data can fetch it all in one go.
-  const [covered, around] = await Promise.allSettled([
+  // All at once: a source that first has to download building data can fetch it all in one go,
+  // and the names come in meanwhile.
+  const [covered, around, namesAround] = await Promise.allSettled([
     source.covers(snapshot.position),
     source.footprintsAround(snapshot.position, SIGHT_CONE_RANGE_METRES),
+    labels.namesAround(snapshot.position, SIGHT_CONE_RANGE_METRES),
   ]);
   if (covered.status === "rejected") throw covered.reason;
   // Outside the Coverage Area the Footprints don't matter, nor does failing to get them.
@@ -44,6 +70,7 @@ export async function identify(snapshot: Snapshot, source: FootprintSource): Pro
   }
   if (around.status === "rejected") throw around.reason;
   const footprints = around.value;
+  const names = namesAround.status === "fulfilled" ? namesAround.value : undefined;
 
   const toLocal = localProjection(snapshot.position);
   const cone = sightConeOverlapTest(snapshot.heading);
@@ -54,11 +81,11 @@ export async function identify(snapshot: Snapshot, source: FootprintSource): Pro
     .map(({ footprint, rings }) => ({ footprint, distanceMetres: distanceToRings(rings) }))
     .sort((a, b) => a.distanceMetres - b.distanceMetres)
     .slice(0, MAX_CANDIDATES)
-    .map((candidate, index) => ({
-      number: index + 1,
-      ...candidate,
-      location: locationOf(candidate.footprint),
-    }));
+    .map(({ footprint, distanceMetres }, index) => {
+      const name = names?.nameOf(footprint);
+      const withName = name ? { ...footprint, name } : footprint;
+      return { number: index + 1, footprint: withName, distanceMetres, location: locationOf(withName) };
+    });
   return { candidates, warnings: [], ...searched };
 }
 
@@ -172,12 +199,6 @@ function distanceToRings(rings: Point[][]): number {
   return nearest;
 }
 
-function* edges(ring: Point[]): Generator<[Point, Point]> {
-  for (let i = 0; i < ring.length; i++) {
-    yield [ring[i]!, ring[(i + 1) % ring.length]!];
-  }
-}
-
 /** Distance from the user to segment a–b. */
 function distanceToSegment(a: Point, b: Point): number {
   const dx = b.x - a.x;
@@ -185,14 +206,6 @@ function distanceToSegment(a: Point, b: Point): number {
   const lengthSquared = dx * dx + dy * dy;
   const t = lengthSquared === 0 ? 0 : clamp(-(a.x * dx + a.y * dy) / lengthSquared, 0, 1);
   return Math.hypot(a.x + t * dx, a.y + t * dy);
-}
-
-function ringContains(ring: Point[], p: Point): boolean {
-  let inside = false;
-  for (const [a, b] of edges(ring)) {
-    if (a.y > p.y !== b.y > p.y && p.x < a.x + ((p.y - a.y) * (b.x - a.x)) / (b.y - a.y)) inside = !inside;
-  }
-  return inside;
 }
 
 function clamp(value: number, min: number, max: number): number {

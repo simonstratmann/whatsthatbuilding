@@ -56,3 +56,19 @@ export function destination(from: LatLng, bearing: number, metres: number): LatL
 export function bearing(from: LatLng, to: LatLng): number {
   return bearingOf(localProjection(from)(to));
 }
+
+/** A ring's edges, the last one closing it; the ring needn't repeat its first point. */
+export function* edges(ring: Point[]): Generator<[Point, Point]> {
+  for (let i = 0; i < ring.length; i++) {
+    yield [ring[i]!, ring[(i + 1) % ring.length]!];
+  }
+}
+
+/** Whether the point lies inside the ring, by the even-odd rule. */
+export function ringContains(ring: Point[], p: Point): boolean {
+  let inside = false;
+  for (const [a, b] of edges(ring)) {
+    if (a.y > p.y !== b.y > p.y && p.x < a.x + ((p.y - a.y) * (b.x - a.x)) / (b.y - a.y)) inside = !inside;
+  }
+  return inside;
+}

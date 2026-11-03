@@ -5,6 +5,7 @@
 # Settings come from the environment: put them in a .env file next to this one
 # (ignored by git) or export them in your shell, e.g.
 #   POSTGRES_PASSWORD=a-long-random-password
+#   OVERPASS_URL=https://overpass.example.org/api/interpreter
 #
 # Both images share one PostGIS database and one GML file cache, so building data is
 # downloaded and imported once. The schema is created when an app first starts.
@@ -23,6 +24,9 @@
 
 x-app-environment: &app-environment
   DATABASE_URL: postgres://building:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgis:5432/building
+  # The Overpass interpreter building names come from. Only the containers talk to it, so an
+  # internal address works. Empty uses the public server.
+  OVERPASS_URL: ${OVERPASS_URL:-}
 
 services:
   app:

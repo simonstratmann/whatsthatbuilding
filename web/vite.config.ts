@@ -7,7 +7,8 @@ import { apiPlugin } from "./dev-server/api.ts";
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 
 export default defineConfig(({ mode }) => {
-  // OVERPASS_URL from the environment or .env.local, for the API the dev server runs.
+  // DATABASE_URL, LOD2_CACHE_DIR, OVERPASS_URL and the like from the environment or .env.local,
+  // for the API the dev server runs.
   const env = loadEnv(mode, repoRoot, "");
   return {
     envDir: repoRoot,

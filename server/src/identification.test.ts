@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Footprint, LatLng, Snapshot } from "@whatisthatbuilding/shared";
-import { identify, type FootprintSource } from "./identification.ts";
+import { identify, type FootprintSource, type LabelSource } from "./identification.ts";
 import { metresFrom, offsetFrom } from "./test-geo.ts";
 
 // The user stands here in every scenario.
@@ -18,7 +18,7 @@ function building(
   south: number,
   east: number,
   north: number,
-  tags: Pick<Footprint, "name" | "address"> = {},
+  tags: Pick<Footprint, "address"> = {},
 ): Footprint {
   return {
     id,
@@ -30,6 +30,11 @@ function building(
 
 function sourceOf(...footprints: Footprint[]): FootprintSource {
   return { covers: async () => true, footprintsAround: async () => footprints };
+}
+
+/** A Label source that knows these names, by Footprint ID. */
+function namesOf(names: Record<string, string>): LabelSource {
+  return { namesAround: async () => ({ nameOf: (footprint) => names[footprint.id] }) };
 }
 
 function facing(heading: number): Snapshot {
@@ -161,32 +166,55 @@ describe("identify", () => {
   it.each([
     {
       known: "name and address",
-      tags: { name: "Rotes Rathaus", address: { street: "Rathausstraße", houseNumber: "15" } },
+      name: "Rotes Rathaus",
+      address: { street: "Rathausstraße", houseNumber: "15" },
       label: "Rotes Rathaus",
     },
-    {
-      known: "street and house number",
-      tags: { address: { street: "Rathausstraße", houseNumber: "15" } },
-      label: "Rathausstraße 15",
+    { known: "name only", name: "Rotes Rathaus", label: "Rotes Rathaus" },
+    { known: "street and house number", address: { street: "Rathausstraße", houseNumber: "15" }, label: "Rathausstraße 15" },
+    { known: "street only", address: { street: "Rathausstraße" }, label: "Rathausstraße" },
+    { known: "house number only", address: { houseNumber: "15" }, label: undefined },
+    { known: "nothing", label: undefined },
+  ])(
+    "labels a Candidate by its OSM name, else its street and house number (known: $known)",
+    async ({ name, address, label }) => {
+      const hall = building("hall", -10, 90, 10, 110, address ? { address } : {});
+
+      const { candidates } = await identify(facing(0), sourceOf(hall), namesOf(name ? { hall: name } : {}));
+
+      expect(candidates[0]?.location.label).toBe(label);
+      expect(candidates[0]?.footprint.name).toBe(name);
     },
-    { known: "street only", tags: { address: { street: "Rathausstraße" } }, label: "Rathausstraße" },
-    { known: "house number only", tags: { address: { houseNumber: "15" } }, label: undefined },
-    { known: "nothing", tags: {}, label: undefined },
-  ])("labels a Candidate by its name, else its street and house number (known: $known)", async ({ tags, label }) => {
-    const hall = building("hall", -10, 90, 10, 110, tags);
+  );
 
-    const { candidates } = await identify(facing(0), sourceOf(hall));
+  it("asks for names around the user, out to the reach of the Sight Cone", async () => {
+    const asked: [LatLng, number][] = [];
+    const labels: LabelSource = {
+      namesAround: async (centre, radius) => (asked.push([centre, radius]), { nameOf: () => undefined }),
+    };
 
-    expect(candidates[0]?.location.label).toBe(label);
+    await identify(facing(0), sourceOf(building("hall", -10, 90, 10, 110)), labels);
+
+    expect(asked).toEqual([[ORIGIN, 500]]);
+  });
+
+  it("labels Candidates by their addresses when the Label source fails", async () => {
+    const hall = building("hall", -10, 90, 10, 110, { address: { street: "Rathausstraße", houseNumber: "15" } });
+    const failing: LabelSource = {
+      namesAround: async () => {
+        throw new Error("Overpass request failed: 504");
+      },
+    };
+
+    const { candidates } = await identify(facing(0), sourceOf(hall), failing);
+
+    expect(candidates.map((c) => [c.footprint.id, c.location.label])).toEqual([["hall", "Rathausstraße 15"]]);
   });
 
   it("puts a Candidate's Location at the centre of its Footprint, with a geo: link carrying the label", async () => {
-    const cafe = {
-      ...building("cafe", -10, 90, 10, 110, { name: "Café (Old Town) & Bar #1" }),
-      centre: { lat: 52.5209, lon: 13.405 },
-    };
+    const cafe = { ...building("cafe", -10, 90, 10, 110), centre: { lat: 52.5209, lon: 13.405 } };
 
-    const { candidates } = await identify(facing(0), sourceOf(cafe));
+    const { candidates } = await identify(facing(0), sourceOf(cafe), namesOf({ cafe: "Café (Old Town) & Bar #1" }));
 
     expect(candidates[0]?.location).toEqual({
       position: { lat: 52.5209, lon: 13.405 },

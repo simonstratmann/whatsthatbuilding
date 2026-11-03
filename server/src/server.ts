@@ -10,12 +10,14 @@ import {
   type IdentifyResponse,
 } from "@whatisthatbuilding/shared";
 import { Hono } from "hono";
-import { identify, type FootprintSource } from "./identification.ts";
+import { identify, type FootprintSource, type LabelSource } from "./identification.ts";
 import { finishRecord, isRequestId, newRequestId, recordingSource, startRecord, writeRequestLog } from "./request-log.ts";
 
 export interface AppOptions {
   /** Where Footprints come from: the LoD2 store, or a fake in tests. */
   footprintSource: FootprintSource;
+  /** Where building names come from: Overpass, or a fake in tests; without it Candidates are labelled by address. */
+  labelSource?: LabelSource;
   /** Where the request log goes (see writeRequestLog); without it nothing is written to disk. */
   requestLogDir?: string;
   /** The built PWA, served for every path outside /api; without it only the API is served. */
@@ -23,7 +25,7 @@ export interface AppOptions {
 }
 
 /** The API and, given a webRoot, the PWA. */
-export function createApp({ footprintSource, requestLogDir, webRoot }: AppOptions): Hono {
+export function createApp({ footprintSource, labelSource, requestLogDir, webRoot }: AppOptions): Hono {
   const app = new Hono();
 
   app.post(IDENTIFY_PATH, async (c) => {
@@ -35,7 +37,12 @@ export function createApp({ footprintSource, requestLogDir, webRoot }: AppOption
 
     let response: IdentifyResponse;
     try {
-      response = { requestId, identification: await identify(request.snapshot, recordingSource(footprintSource, record)) };
+      const identification = await identify(
+        request.snapshot,
+        recordingSource(footprintSource, record),
+        labelSource && loggingFailures(labelSource, requestId),
+      );
+      response = { requestId, identification };
     } catch (error) {
       console.error(`[identify] request ${requestId} failed:`, error);
       response = { requestId, error: String(error) };
@@ -70,6 +77,17 @@ export function createApp({ footprintSource, requestLogDir, webRoot }: AppOption
     app.get("*", serveStatic({ root: webRoot, path: "index.html" }));
   }
   return app;
+}
+
+/** The Label source, logging why it failed; identify carries on without names. */
+function loggingFailures(source: LabelSource, requestId: string): LabelSource {
+  return {
+    namesAround: (centre, radiusMetres) =>
+      source.namesAround(centre, radiusMetres).catch((error: unknown) => {
+        console.error(`[labels] request ${requestId}: no names from OpenStreetMap:`, error);
+        throw error;
+      }),
+  };
 }
 
 /** The request log is for testing; a full disk or bad ID must not cost the user their answer. */

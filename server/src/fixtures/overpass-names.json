@@ -1,0 +1,91 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.7 375dc00a",
+  "osm3s": {
+    "timestamp_osm_base": "2026-11-03T19:12:41Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+    {
+      "type": "node",
+      "id": 3001,
+      "lat": 53.5521,
+      "lon": 9.9902,
+      "tags": { "amenity": "cafe", "name": "Café im Foyer" }
+    },
+    {
+      "type": "node",
+      "id": 3002,
+      "lat": 53.5511,
+      "lon": 9.9911,
+      "tags": { "shop": "kiosk", "name": "Kiosk am Markt" }
+    },
+    {
+      "type": "node",
+      "id": 3003,
+      "lat": 53.5551,
+      "lon": 9.9941,
+      "tags": { "shop": "bakery", "name": "Bäckerei Kruse" }
+    },
+    {
+      "type": "node",
+      "id": 3004,
+      "lat": 53.5551,
+      "lon": 9.99415,
+      "tags": { "amenity": "pharmacy", "name": "Apotheke am Gänsemarkt" }
+    },
+    {
+      "type": "way",
+      "id": 2001,
+      "bounds": { "minlat": 53.552, "minlon": 9.99, "maxlat": 53.5522, "maxlon": 9.9904 },
+      "geometry": [
+        { "lat": 53.552, "lon": 9.99 },
+        { "lat": 53.552, "lon": 9.9904 },
+        { "lat": 53.5522, "lon": 9.9904 },
+        { "lat": 53.5522, "lon": 9.99 },
+        { "lat": 53.552, "lon": 9.99 }
+      ],
+      "tags": { "building": "yes", "amenity": "theatre", "name": "Laeiszhalle" }
+    },
+    {
+      "type": "relation",
+      "id": 4001,
+      "bounds": { "minlat": 53.554, "minlon": 9.993, "maxlat": 53.5542, "maxlon": 9.9934 },
+      "members": [
+        {
+          "type": "way",
+          "ref": 5001,
+          "role": "outer",
+          "geometry": [
+            { "lat": 53.554, "lon": 9.993 },
+            { "lat": 53.554, "lon": 9.9934 },
+            { "lat": 53.5542, "lon": 9.9934 }
+          ]
+        },
+        {
+          "type": "way",
+          "ref": 5002,
+          "role": "outer",
+          "geometry": [
+            { "lat": 53.554, "lon": 9.993 },
+            { "lat": 53.5542, "lon": 9.993 },
+            { "lat": 53.5542, "lon": 9.9934 }
+          ]
+        },
+        {
+          "type": "way",
+          "ref": 5003,
+          "role": "inner",
+          "geometry": [
+            { "lat": 53.55405, "lon": 9.99305 },
+            { "lat": 53.55405, "lon": 9.99335 },
+            { "lat": 53.55415, "lon": 9.99335 },
+            { "lat": 53.55415, "lon": 9.99305 },
+            { "lat": 53.55405, "lon": 9.99305 }
+          ]
+        }
+      ],
+      "tags": { "type": "multipolygon", "building": "office", "name": "Kontorhaus am Hof" }
+    }
+  ]
+}

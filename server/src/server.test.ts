@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChoiceReport, Footprint, IdentifyRequest, IdentifyResponse, LatLng } from "@whatisthatbuilding/shared";
-import type { FootprintSource } from "./identification.ts";
+import type { FootprintSource, LabelSource } from "./identification.ts";
 import { startServer, type RunningServer } from "./server.ts";
 import { offsetFrom } from "./test-geo.ts";
 
@@ -39,8 +39,12 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
-async function start(source: FootprintSource, requestLogDir?: string): Promise<string> {
-  server = await startServer({ port: 0, footprintSource: source, ...(requestLogDir ? { requestLogDir } : {}) });
+async function start(
+  source: FootprintSource,
+  requestLogDir?: string,
+  options: { labelSource?: LabelSource } = {},
+): Promise<string> {
+  server = await startServer({ port: 0, footprintSource: source, ...(requestLogDir ? { requestLogDir } : {}), ...options });
   return server.url;
 }
 
@@ -90,6 +94,36 @@ describe("POST /api/identify", () => {
     const body = (await response.json()) as IdentifyResponse;
     expect(body).toMatchObject({ error: "Error: connect ECONNREFUSED 127.0.0.1:5432" });
     expect(logged).toHaveBeenCalledWith(expect.stringContaining(body.requestId), expect.any(Error));
+  });
+
+  it("labels Candidates by the names the Label source knows", async () => {
+    const url = await start(sourceOf(TOWN_HALL), undefined, {
+      labelSource: {
+        namesAround: async () => ({ nameOf: (footprint) => (footprint.id === "town-hall" ? "Hamburger Rathaus" : undefined) }),
+      },
+    });
+
+    const body = (await (await post(`${url}/api/identify`, facingNorth)).json()) as IdentifyResponse;
+
+    expect(body).toMatchObject({ identification: { candidates: [{ location: { label: "Hamburger Rathaus" } }] } });
+  });
+
+  it("logs a failing Label source and answers with address Labels", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const url = await start(sourceOf(TOWN_HALL), undefined, {
+      labelSource: {
+        namesAround: async () => {
+          throw new Error("Overpass request failed: 504");
+        },
+      },
+    });
+
+    const response = await post(`${url}/api/identify`, facingNorth);
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as IdentifyResponse;
+    expect(body).toMatchObject({ identification: { candidates: [{ location: { label: "Rathausmarkt 1" } }] } });
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining(body.requestId), expect.objectContaining({ message: "Overpass request failed: 504" }));
   });
 
   it("refuses a request that isn't a Snapshot", async () => {

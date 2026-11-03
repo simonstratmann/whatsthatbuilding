@@ -1,17 +1,20 @@
 import { lod2Store } from "./lod2-store.ts";
 import { niedersachsenLoader } from "./niedersachsen-loader.ts";
+import { overpassLabelSource, PUBLIC_OVERPASS_URL } from "./overpass-labels.ts";
 import type { AppOptions } from "./server.ts";
 
 /**
  * The server's settings from its environment: DATABASE_URL (the PostGIS database holding the
- * LoD2 building model), LOD2_CACHE_DIR (where downloaded GML is kept) and REQUEST_LOG_DIR
- * (keep the request log there; empty keeps none).
+ * LoD2 building model), LOD2_CACHE_DIR (where downloaded GML is kept), OVERPASS_URL (the
+ * Overpass interpreter building names come from; empty uses the public server) and
+ * REQUEST_LOG_DIR (keep the request log there; empty keeps none).
  */
 export function appOptionsFromEnv(env: Partial<Record<string, string>>): Omit<AppOptions, "webRoot"> {
   const store = lod2Store(databaseUrlFromEnv(env));
   return {
     // Niedersachsen's tiles load the first time a Snapshot needs them; Hamburg's are imported.
     footprintSource: niedersachsenLoader({ store, cacheDir: lod2CacheDirFromEnv(env) }).source,
+    labelSource: overpassLabelSource({ url: overpassUrlFromEnv(env) }),
     ...(env.REQUEST_LOG_DIR ? { requestLogDir: env.REQUEST_LOG_DIR } : {}),
   };
 }
@@ -29,4 +32,13 @@ export function databaseUrlFromEnv(env: Partial<Record<string, string>>): string
 export function lod2CacheDirFromEnv(env: Partial<Record<string, string>>): string {
   if (!env.LOD2_CACHE_DIR) throw new Error("LOD2_CACHE_DIR must name the folder that keeps the downloaded GML files");
   return env.LOD2_CACHE_DIR;
+}
+
+/** OVERPASS_URL: the Overpass interpreter building names come from; empty uses the public server. */
+export function overpassUrlFromEnv(env: Partial<Record<string, string>>): string {
+  const url = URL.parse(env.OVERPASS_URL || PUBLIC_OVERPASS_URL);
+  if (url?.protocol !== "http:" && url?.protocol !== "https:") {
+    throw new Error(`OVERPASS_URL must be an http(s) URL, not ${JSON.stringify(env.OVERPASS_URL)}`);
+  }
+  return url.href;
 }
