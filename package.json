@@ -11,7 +11,8 @@
     "preview": "npm run preview -w web",
     "preview:https": "npm run preview:https -w web",
     "typecheck": "npm run typecheck --workspaces",
-    "test": "vitest run"
+    "test": "vitest run",
+    "import:hamburg": "node --env-file-if-exists=.env.local server/src/import-hamburg.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

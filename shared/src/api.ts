@@ -18,7 +18,17 @@ export interface Snapshot {
   heading: number;
   /** How far off the position may be, in metres, as the GPS reports it. */
   accuracyMetres: number;
+  compassCalibration: CompassCalibration;
 }
+
+/**
+ * Whether the compass the heading came from is calibrated, as far as the platform says:
+ * "uncalibrated" when it reports the compass as unreliable, "unknown" when it can't tell
+ * (Chrome on Android never says).
+ */
+export type CompassCalibration = "calibrated" | "uncalibrated" | "unknown";
+
+export const COMPASS_CALIBRATIONS: readonly CompassCalibration[] = ["calibrated", "uncalibrated", "unknown"];
 
 /** An absolute device-orientation reading, in degrees, as the DeviceOrientation spec defines it. */
 export interface OrientationReading {
@@ -44,27 +54,28 @@ export type IdentificationOutcome = { identification: Identification } | { error
  */
 export type IdentifyResponse = { requestId: string } & IdentificationOutcome;
 
-/**
- * A building's outline on the ground.
- *
- * Interim: the glossary and ADR 0003 have Footprints come from the LoD2 building model, with
- * height and function. Until that lands (ticket 03) they come from OpenStreetMap, so this
- * carries OSM's name and tagged address instead.
- */
+/** A building's outline on the ground, with its height, function and address, from the LoD2 building model. */
 export interface Footprint {
+  /** The building's ID in the building model (its gml:id). */
   id: string;
-  /** Outer rings; a building made of several parts has several. */
+  /** Outer rings, without courtyards; a building made of several parts has several. */
   rings: LatLng[][];
   /** The middle of the Footprint, where the building's Location pin goes. */
   centre: LatLng;
-  name?: string;
+  /** From the ground to the highest point of the roof, as the building model measures it. */
+  heightMetres?: number;
+  /** The AdV building function code, e.g. "31001_1000" (Wohnhaus). */
+  functionCode?: string;
   address?: Address;
+  /** The building's name. The building model has none; names will come from OpenStreetMap. */
+  name?: string;
 }
 
-/** A building's address parts, as tagged in OpenStreetMap for now (see Footprint). */
+/** A building's address, from the building model. */
 export interface Address {
   street?: string;
   houseNumber?: string;
+  city?: string;
 }
 
 /** Where a chosen building is, as handed to the user's maps app. */
@@ -84,8 +95,15 @@ export interface Candidate {
   location: Location;
 }
 
+/**
+ * Something the user should know about an Identification. "outside-coverage-area": the
+ * Snapshot was taken where the app has no building data, so there are no Candidates.
+ */
+export type IdentificationWarning = "outside-coverage-area";
+
 export interface Identification {
   candidates: Candidate[];
+  warnings: IdentificationWarning[];
   /** The Sight Cone that was searched: the user's position, then the far arc from left to right. */
   sightCone: LatLng[];
   /** From the user along their heading to the far edge of the Sight Cone. */

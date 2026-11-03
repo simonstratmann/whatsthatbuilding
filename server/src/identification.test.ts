@@ -29,11 +29,11 @@ function building(
 }
 
 function sourceOf(...footprints: Footprint[]): FootprintSource {
-  return { footprintsAround: async () => footprints };
+  return { covers: async () => true, footprintsAround: async () => footprints };
 }
 
 function facing(heading: number): Snapshot {
-  return { position: ORIGIN, heading, accuracyMetres: 5 };
+  return { position: ORIGIN, heading, accuracyMetres: 5, compassCalibration: "calibrated" };
 }
 
 describe("identify", () => {
@@ -205,6 +205,29 @@ describe("identify", () => {
     const { candidates } = await identify(facing(0), sourceOf(shed));
 
     expect(candidates[0]?.location.geoUri).toBe("geo:52.5209,13.405?q=52.5209,13.405");
+  });
+
+  it("gives no warnings for a Snapshot inside the Coverage Area", async () => {
+    const { warnings } = await identify(facing(0), sourceOf(building("shop", -10, 90, 10, 110)));
+
+    expect(warnings).toEqual([]);
+  });
+
+  it("warns that a Snapshot outside the Coverage Area has no building data, and offers no Candidates", async () => {
+    const shop = building("shop", -10, 90, 10, 110);
+    const asked: LatLng[] = [];
+    const source: FootprintSource = {
+      covers: async (position) => (asked.push(position), false),
+      footprintsAround: async () => [shop],
+    };
+
+    const { candidates, warnings, lineOfSight } = await identify(facing(0), source);
+
+    expect(asked).toEqual([ORIGIN]);
+    expect(candidates).toEqual([]);
+    expect(warnings).toEqual(["outside-coverage-area"]);
+    // The mini-map can still show where the user stood and looked.
+    expect(lineOfSight.from).toEqual(ORIGIN);
   });
 
   it("describes the Sight Cone it searched: from the user out to 500 m, ±15° around the heading", async () => {

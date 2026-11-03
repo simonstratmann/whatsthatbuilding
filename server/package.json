@@ -9,11 +9,23 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.6",
+    "@whatisthatbuilding/shared": "0.1.0",
     "hono": "^4.13.16",
-    "@whatisthatbuilding/shared": "0.1.0"
+    "pg": "^8.23.1",
+    "proj4": "^2.22.0",
+    "saxes": "^6.0.0",
+    "yauzl": "^3.4.0"
   },
   "exports": {
     "./config": "./src/config.ts",
     "./server": "./src/server.ts"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "^12.2.1",
+    "@types/pg": "^8.23.1",
+    "@types/yauzl": "^3.4.0",
+    "@types/yazl": "^3.3.1",
+    "testcontainers": "^12.2.1",
+    "yazl": "^3.3.1"
   }
 }

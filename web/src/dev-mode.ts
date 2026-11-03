@@ -5,7 +5,7 @@ import { identifyOnServer } from "./identify-client.ts";
 import { addOsmTiles, fromLeaflet, toLeaflet } from "./leaflet-map.ts";
 import { showIdentificationScreen } from "./identification-screen.ts";
 
-const START: LatLng = { lat: 52.3745, lon: 9.7386 }; // Kröpcke, Hannover
+const START: LatLng = { lat: 53.5503, lon: 9.9925 }; // Rathausmarkt, Hamburg
 const HANDLE_DISTANCE_METRES = 150;
 
 /**
@@ -68,7 +68,11 @@ export function startDevMode(app: HTMLElement): void {
     candidateScreen = undefined;
     chosenReading.textContent = "";
     candidateArea.innerHTML = `<p class="notice">Looking for buildings…</p>`;
-    const attempt = await identifyOnServer({ position, heading, accuracyMetres: 0 }, "dev");
+    // The heading set by dragging is exact, as a calibrated compass would give it.
+    const attempt = await identifyOnServer(
+      { position, heading, accuracyMetres: 0, compassCalibration: "calibrated" },
+      "dev",
+    );
     button.disabled = false;
     candidateScreen = showIdentificationScreen(candidateArea, attempt, {
       onChoose: (candidate) => {

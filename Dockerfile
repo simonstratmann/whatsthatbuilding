@@ -2,7 +2,8 @@
 # Two images from one Dockerfile, each a single Node service serving the PWA and its API:
 #   --target production  → no request log                                   (tag: latest)
 #   --target dev         → keeps every request in /app/logs (REQUEST_LOG_DIR) (tag: dev-latest)
-# The server asks the Overpass server named by OVERPASS_URL, read at start-up.
+# The server reads its building data from the PostGIS database named by DATABASE_URL and
+# keeps downloaded GML files in /app/cache (LOD2_CACHE_DIR). See docker-compose.yml.
 
 FROM node:24-alpine AS build
 WORKDIR /app
@@ -26,7 +27,9 @@ COPY shared/src shared/src
 COPY server/src server/src
 COPY --from=build /app/web/dist web/dist
 # Request IDs carry the local time, as they did when the browser made them; Node has its own time zone data.
-ENV NODE_ENV=production PORT=8080 TZ=Europe/Berlin
+ENV NODE_ENV=production PORT=8080 TZ=Europe/Berlin LOD2_CACHE_DIR=/app/cache/lod2
+RUN mkdir -p cache && chown node:node cache
+VOLUME /app/cache
 USER node
 EXPOSE 8080
 CMD ["node", "server/src/main.ts"]

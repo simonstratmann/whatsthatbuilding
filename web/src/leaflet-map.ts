@@ -10,6 +10,13 @@ export function addOsmTiles(map: L.Map): void {
   }).addTo(map);
 }
 
+/** The credit the licence of the building model the Footprints come from asks for. */
+export function addBuildingDataCredit(map: L.Map): void {
+  map.attributionControl.addAttribution(
+    'Freie und Hansestadt Hamburg, LGV (<a href="https://www.govdata.de/dl-de/by-2-0">dl-de/by-2.0</a>)',
+  );
+}
+
 export function toLeaflet(p: LatLng): L.LatLngTuple {
   return [p.lat, p.lon];
 }

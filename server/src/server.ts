@@ -3,6 +3,7 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import {
   CHOICE_PATH,
+  COMPASS_CALIBRATIONS,
   IDENTIFY_PATH,
   type ChoiceReport,
   type IdentifyRequest,
@@ -10,15 +11,11 @@ import {
 } from "@whatisthatbuilding/shared";
 import { Hono } from "hono";
 import { identify, type FootprintSource } from "./identification.ts";
-import { recordingOverpassFetch } from "./overpass.ts";
-import { finishRecord, isRequestId, newRequestId, startRecord, writeRequestLog } from "./request-log.ts";
+import { finishRecord, isRequestId, newRequestId, recordingSource, startRecord, writeRequestLog } from "./request-log.ts";
 
 export interface AppOptions {
-  /**
-   * The Footprint source for one request, given the fetch it must use for its outgoing
-   * requests so the request log can keep them.
-   */
-  footprintSource(fetchFn: typeof fetch): FootprintSource;
+  /** Where Footprints come from: the LoD2 store, or a fake in tests. */
+  footprintSource: FootprintSource;
   /** Where the request log goes (see writeRequestLog); without it nothing is written to disk. */
   requestLogDir?: string;
   /** The built PWA, served for every path outside /api; without it only the API is served. */
@@ -34,12 +31,11 @@ export function createApp({ footprintSource, requestLogDir, webRoot }: AppOption
     if (!request) return c.json({ error: "Expected a Snapshot" }, 400);
 
     const requestId = newRequestId();
-    const recorder = recordingOverpassFetch();
-    const record = startRecord(requestId, request, recorder.exchanges);
+    const record = startRecord(requestId, request);
 
     let response: IdentifyResponse;
     try {
-      response = { requestId, identification: await identify(request.snapshot, footprintSource(recorder.fetch)) };
+      response = { requestId, identification: await identify(request.snapshot, recordingSource(footprintSource, record)) };
     } catch (error) {
       console.error(`[identify] request ${requestId} failed:`, error);
       response = { requestId, error: String(error) };
@@ -89,17 +85,20 @@ function asIdentifyRequest(body: unknown): IdentifyRequest | undefined {
   const request = body as Partial<IdentifyRequest> | undefined;
   const snapshot = request?.snapshot;
   const isNumber = (value: unknown) => typeof value === "number" && Number.isFinite(value);
+  // A page loaded before the calibration state existed doesn't send it.
+  const compassCalibration = snapshot?.compassCalibration ?? "unknown";
   if (
     !snapshot ||
     !isNumber(snapshot.position?.lat) ||
     !isNumber(snapshot.position?.lon) ||
     !isNumber(snapshot.heading) ||
     !isNumber(snapshot.accuracyMetres) ||
+    !COMPASS_CALIBRATIONS.includes(compassCalibration) ||
     (request.mode !== "phone" && request.mode !== "dev")
   ) {
     return undefined;
   }
-  return request as IdentifyRequest;
+  return { ...request, snapshot: { ...snapshot, compassCalibration } } as IdentifyRequest;
 }
 
 function asChoiceReport(body: unknown): ChoiceReport | undefined {

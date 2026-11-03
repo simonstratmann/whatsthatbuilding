@@ -13,6 +13,8 @@ import {
 } from "@whatisthatbuilding/shared";
 
 export interface FootprintSource {
+  /** Whether the Coverage Area includes the position: whether there is building data for it. */
+  covers(position: LatLng): Promise<boolean>;
   footprintsAround(centre: LatLng, radiusMetres: number): Promise<Footprint[]>;
 }
 
@@ -23,6 +25,17 @@ const USER: Point = { x: 0, y: 0 };
 const SIGHT_CONE_ARC_STEPS = 12;
 
 export async function identify(snapshot: Snapshot, source: FootprintSource): Promise<Identification> {
+  const searched = {
+    sightCone: sightConeBoundary(snapshot),
+    lineOfSight: {
+      from: snapshot.position,
+      to: destination(snapshot.position, snapshot.heading, SIGHT_CONE_RANGE_METRES),
+    },
+  };
+  if (!(await source.covers(snapshot.position))) {
+    return { candidates: [], warnings: ["outside-coverage-area"], ...searched };
+  }
+
   const footprints = await source.footprintsAround(snapshot.position, SIGHT_CONE_RANGE_METRES);
   const toLocal = localProjection(snapshot.position);
   const cone = sightConeOverlapTest(snapshot.heading);
@@ -38,14 +51,7 @@ export async function identify(snapshot: Snapshot, source: FootprintSource): Pro
       ...candidate,
       location: locationOf(candidate.footprint),
     }));
-  return {
-    candidates,
-    sightCone: sightConeBoundary(snapshot),
-    lineOfSight: {
-      from: snapshot.position,
-      to: destination(snapshot.position, snapshot.heading, SIGHT_CONE_RANGE_METRES),
-    },
-  };
+  return { candidates, warnings: [], ...searched };
 }
 
 const GEO_URI_DECIMAL_PLACES = 7;

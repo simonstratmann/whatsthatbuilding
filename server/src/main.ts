@@ -10,7 +10,7 @@ const webRoot = process.env.WEB_ROOT || fileURLToPath(new URL("../../web/dist", 
 const options = appOptionsFromEnv(process.env);
 const server = await startServer({ ...options, webRoot, port });
 console.log(`Serving ${webRoot} and the API on ${server.url}`);
-console.log(`Overpass: ${process.env.OVERPASS_URL || "public server"}; request log: ${options.requestLogDir ?? "off"}`);
+console.log(`Request log: ${options.requestLogDir ?? "off"}`);
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => void server.close().finally(() => process.exit(0)));

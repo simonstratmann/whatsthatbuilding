@@ -1,0 +1,18 @@
+# PostGIS for `npm run dev` on your own machine:
+#   docker compose -f docker-compose.local.yml up -d
+# then put the DATABASE_URL below in .env.local (see .env.example) and import Hamburg once:
+#   npm run import:hamburg
+services:
+  postgis:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_USER: building
+      POSTGRES_PASSWORD: building
+      POSTGRES_DB: building
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgis-local:/var/lib/postgresql/data
+
+volumes:
+  postgis-local:

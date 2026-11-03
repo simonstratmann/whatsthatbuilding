@@ -127,6 +127,9 @@ export function startSensors(onProblem: (problem: SensorProblem) => void): Senso
           position: { lat: position.coords.latitude, lon: position.coords.longitude },
           heading,
           accuracyMetres: position.coords.accuracy,
+          // Chrome on Android, the only browser with absolute orientation events, never says
+          // whether its compass is calibrated.
+          compassCalibration: "unknown",
         },
         orientation: reading,
       };

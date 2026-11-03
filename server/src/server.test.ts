@@ -7,10 +7,10 @@ import type { FootprintSource } from "./identification.ts";
 import { startServer, type RunningServer } from "./server.ts";
 import { offsetFrom } from "./test-geo.ts";
 
-const ORIGIN: LatLng = { lat: 52.3745, lon: 9.7386 };
+const ORIGIN: LatLng = { lat: 53.5503, lon: 9.9925 };
 
 /** A 20 m square building `north` metres north of ORIGIN. */
-function buildingNorth(id: string, north: number, tags: Pick<Footprint, "name" | "address"> = {}): Footprint {
+function buildingNorth(id: string, north: number, tags: Pick<Footprint, "address"> = {}): Footprint {
   const at = (east: number, northOfUser: number) => offsetFrom(ORIGIN, east, northOfUser);
   return {
     id,
@@ -21,9 +21,16 @@ function buildingNorth(id: string, north: number, tags: Pick<Footprint, "name" |
 }
 
 const facingNorth: IdentifyRequest = {
-  snapshot: { position: ORIGIN, heading: 0, accuracyMetres: 5 },
+  snapshot: { position: ORIGIN, heading: 0, accuracyMetres: 5, compassCalibration: "calibrated" },
   mode: "dev",
 };
+
+const TOWN_HALL = buildingNorth("town-hall", 50, { address: { street: "Rathausmarkt", houseNumber: "1" } });
+
+/** A Footprint source covering everywhere, with these Footprints. */
+function sourceOf(...footprints: Footprint[]): FootprintSource {
+  return { covers: async () => true, footprintsAround: async () => footprints };
+}
 
 let server: RunningServer | undefined;
 afterEach(async () => {
@@ -33,7 +40,7 @@ afterEach(async () => {
 });
 
 async function start(source: FootprintSource, requestLogDir?: string): Promise<string> {
-  server = await startServer({ port: 0, footprintSource: () => source, ...(requestLogDir ? { requestLogDir } : {}) });
+  server = await startServer({ port: 0, footprintSource: source, ...(requestLogDir ? { requestLogDir } : {}) });
   return server.url;
 }
 
@@ -42,8 +49,8 @@ function post(url: string, body: unknown): Promise<Response> {
 }
 
 describe("POST /api/identify", () => {
-  it("answers a Snapshot with its Candidates, Sight Cone and Line of Sight", async () => {
-    const url = await start({ footprintsAround: async () => [buildingNorth("opera", 50, { name: "Opernhaus" })] });
+  it("answers a Snapshot with its Candidates, warnings, Sight Cone and Line of Sight", async () => {
+    const url = await start(sourceOf(TOWN_HALL));
 
     const response = await post(`${url}/api/identify`, facingNorth);
 
@@ -52,18 +59,28 @@ describe("POST /api/identify", () => {
     expect(body.requestId).toMatch(/^\d{8}-\d{6}-[a-z0-9]{4}$/);
     if (!("identification" in body)) throw new Error(`expected an identification, got ${JSON.stringify(body)}`);
     expect(body.identification.candidates).toMatchObject([
-      { number: 1, footprint: { id: "opera" }, location: { label: "Opernhaus" } },
+      { number: 1, footprint: { id: "town-hall" }, location: { label: "Rathausmarkt 1" } },
     ]);
+    expect(body.identification.warnings).toEqual([]);
     expect(body.identification.candidates[0]?.distanceMetres).toBeCloseTo(50, 0);
     expect(body.identification.sightCone[0]).toEqual(ORIGIN);
     expect(body.identification.lineOfSight.from).toEqual(ORIGIN);
   });
 
+  it("answers a Snapshot outside the Coverage Area with its warning and no Candidates", async () => {
+    const url = await start({ covers: async () => false, footprintsAround: async () => [TOWN_HALL] });
+
+    const body = (await (await post(`${url}/api/identify`, facingNorth)).json()) as IdentifyResponse;
+
+    expect(body).toMatchObject({ identification: { candidates: [], warnings: ["outside-coverage-area"] } });
+  });
+
   it("logs a failing Footprint source and answers with the error", async () => {
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     const url = await start({
+      covers: async () => true,
       footprintsAround: async () => {
-        throw new Error("Overpass request failed: 504");
+        throw new Error("connect ECONNREFUSED 127.0.0.1:5432");
       },
     });
 
@@ -71,24 +88,42 @@ describe("POST /api/identify", () => {
 
     expect(response.status).toBe(502);
     const body = (await response.json()) as IdentifyResponse;
-    expect(body).toMatchObject({ error: "Error: Overpass request failed: 504" });
+    expect(body).toMatchObject({ error: "Error: connect ECONNREFUSED 127.0.0.1:5432" });
     expect(logged).toHaveBeenCalledWith(expect.stringContaining(body.requestId), expect.any(Error));
   });
 
   it("refuses a request that isn't a Snapshot", async () => {
-    const url = await start({ footprintsAround: async () => [] });
+    const url = await start(sourceOf());
 
     const response = await post(`${url}/api/identify`, { snapshot: { position: "here" } });
+    const badCalibration = await post(`${url}/api/identify`, {
+      ...facingNorth,
+      snapshot: { ...facingNorth.snapshot, compassCalibration: "great" },
+    });
 
     expect(response.status).toBe(400);
+    expect(badCalibration.status).toBe(400);
+  });
+
+  it("takes a Snapshot from an older page without a compass-calibration state as unknown", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "server-request-log-"));
+    const url = await start(sourceOf(), dir);
+    const { compassCalibration: _, ...olderSnapshot } = facingNorth.snapshot;
+
+    const response = await post(`${url}/api/identify`, { ...facingNorth, snapshot: olderSnapshot });
+
+    expect(response.status).toBe(200);
+    const { requestId } = (await response.json()) as IdentifyResponse;
+    const saved = JSON.parse(await readFile(join(dir, "requests", `${requestId}.json`), "utf8"));
+    expect(saved.snapshot.compassCalibration).toBe("unknown");
   });
 
   it("keeps each request and the choice made from it in the request log", async () => {
     const dir = await mkdtemp(join(tmpdir(), "server-request-log-"));
-    const url = await start({ footprintsAround: async () => [buildingNorth("opera", 50, { name: "Opernhaus" })] }, dir);
+    const url = await start(sourceOf(TOWN_HALL), dir);
 
     const { requestId } = (await (await post(`${url}/api/identify`, facingNorth)).json()) as IdentifyResponse;
-    const report: ChoiceReport = { requestId, choice: { number: 1, footprintId: "opera", at: "2026-11-03T18:00:00.000Z" } };
+    const report: ChoiceReport = { requestId, choice: { number: 1, footprintId: "town-hall", at: "2026-11-03T18:00:00.000Z" } };
     const choice = await post(`${url}/api/choice`, report);
 
     expect(choice.status).toBe(204);
@@ -97,14 +132,16 @@ describe("POST /api/identify", () => {
       id: requestId,
       mode: "dev",
       snapshot: facingNorth.snapshot,
-      candidates: [{ number: 1, footprintId: "opera", label: "Opernhaus" }],
+      covered: true,
+      footprints: [TOWN_HALL],
+      candidates: [{ number: 1, footprintId: "town-hall", label: "Rathausmarkt 1" }],
       chosen: report.choice,
     });
   });
 
   it("refuses a choice whose request ID could name a path outside the log folder", async () => {
-    const url = await start({ footprintsAround: async () => [] });
-    const choice = { number: 1, footprintId: "opera", at: "2026-11-03T18:00:00.000Z" };
+    const url = await start(sourceOf());
+    const choice = { number: 1, footprintId: "town-hall", at: "2026-11-03T18:00:00.000Z" };
 
     expect((await post(`${url}/api/choice`, { requestId: "../../etc/passwd", choice })).status).toBe(400);
     expect((await post(`${url}/api/choice`, { requestId: "20261103-180000-abcd", choice: { number: "1" } })).status).toBe(400);
@@ -117,7 +154,7 @@ describe("the PWA", () => {
     await mkdir(join(webRoot, "assets"));
     await writeFile(join(webRoot, "index.html"), "<!doctype html><title>app</title>");
     await writeFile(join(webRoot, "assets", "index-abc123.js"), "console.log('app')");
-    server = await startServer({ port: 0, footprintSource: () => ({ footprintsAround: async () => [] }), webRoot });
+    server = await startServer({ port: 0, footprintSource: sourceOf(), webRoot });
     return server.url;
   }
 

@@ -1,6 +1,6 @@
 import L from "leaflet";
 import type { Candidate, Identification } from "@whatisthatbuilding/shared";
-import { addOsmTiles, toLeaflet } from "./leaflet-map.ts";
+import { addBuildingDataCredit, addOsmTiles, toLeaflet } from "./leaflet-map.ts";
 
 const FIT_PADDING_PIXELS = 24;
 
@@ -16,9 +16,13 @@ export interface CandidateScreen {
  */
 export function showCandidateScreen(
   container: HTMLElement,
-  { candidates, sightCone, lineOfSight }: Identification,
+  { candidates, warnings, sightCone, lineOfSight }: Identification,
   onChoose: (candidate: Candidate) => void,
 ): CandidateScreen {
+  if (warnings.includes("outside-coverage-area")) {
+    container.innerHTML = `<p class="notice">No building data here.</p>`;
+    return { destroy() {} };
+  }
   if (candidates.length === 0) {
     container.innerHTML = `<p class="notice">No buildings found in the Sight Cone.</p>`;
     return { destroy() {} };
@@ -28,6 +32,7 @@ export function showCandidateScreen(
   const list = container.querySelector<HTMLOListElement>(".candidates")!;
   const map = L.map(container.querySelector<HTMLElement>(".mini-map")!, { zoomSnap: 0.25 });
   addOsmTiles(map);
+  addBuildingDataCredit(map);
 
   L.polygon(sightCone.map(toLeaflet), {
     className: "sight-cone",

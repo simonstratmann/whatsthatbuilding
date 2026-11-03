@@ -1,4 +1,4 @@
-# Keep local settings (your Overpass server), logs and build output out of the images.
+# Keep local settings, logs, the GML cache and build output out of the images.
 .git
 .env
 *.local
@@ -6,3 +6,4 @@
 **/dist
 logs
 .scratch
+cache

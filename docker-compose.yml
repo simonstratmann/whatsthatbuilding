@@ -4,28 +4,63 @@
 #
 # Settings come from the environment: put them in a .env file next to this one
 # (ignored by git) or export them in your shell, e.g.
-#   OVERPASS_URL=https://overpass.example.org/api/interpreter
+#   POSTGRES_PASSWORD=a-long-random-password
+#
+# Both images share one PostGIS database and one GML file cache, so building data is
+# downloaded and imported once. The schema is created when an app first starts.
+#
+# Import Hamburg's building model (a 650 MB download, 7 GB of GML kept in the cache, a few
+# minutes to load; the database grows by about 200 MB), and again each April when a new
+# release comes out:
+#   docker compose run --rm app node server/src/import-hamburg.ts
+
+x-app-environment: &app-environment
+  DATABASE_URL: postgres://building:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgis:5432/building
 
 services:
   app:
     image: ghcr.io/simonstratmann/whatsthatbuilding:latest
     restart: unless-stopped
+    depends_on:
+      postgis:
+        condition: service_healthy
     ports:
       - "127.0.0.1:8080:8080"
-    environment:
-      # The Overpass interpreter the server asks for building data. Only the container talks
-      # to it, so an internal address works, e.g. http://overpass:8080/api/interpreter for an
-      # Overpass service in the same Compose project. Empty uses the public server.
-      OVERPASS_URL: ${OVERPASS_URL:-}
+    environment: *app-environment
+    volumes:
+      # Downloaded LoD2 GML files. The container runs as uid 1000, which must be able to write here.
+      - lod2-cache:/app/cache
 
   app-dev:
     image: ghcr.io/simonstratmann/whatsthatbuilding:dev-latest
     restart: unless-stopped
+    depends_on:
+      postgis:
+        condition: service_healthy
     ports:
       - "127.0.0.1:4173:8080"
-    environment:
-      OVERPASS_URL: ${OVERPASS_URL:-}
+    environment: *app-environment
     volumes:
+      - lod2-cache:/app/cache
       # Request logs: requests.log and requests/<id>.json. The container runs as uid 1000,
       # which must be able to write here.
       - ./logs:/app/logs
+
+  postgis:
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: building
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: building
+    volumes:
+      - postgis-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U building -d building"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  postgis-data:
+  lod2-cache:

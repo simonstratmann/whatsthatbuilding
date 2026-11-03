@@ -1,12 +1,21 @@
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Choice, IdentificationOutcome, IdentifyRequest, LatLng, OrientationReading, Snapshot } from "@whatisthatbuilding/shared";
-import type { OverpassExchange } from "./overpass.ts";
+import type {
+  Choice,
+  Footprint,
+  IdentificationOutcome,
+  IdentificationWarning,
+  IdentifyRequest,
+  LatLng,
+  OrientationReading,
+  Snapshot,
+} from "@whatisthatbuilding/shared";
+import type { FootprintSource } from "./identification.ts";
 
 /**
  * Everything one Snapshot led to, kept so a misbehaving test on the phone can be told
- * apart later and replayed as a unit test: the Snapshot and Overpass answer are the inputs
- * `identify` needs, the Candidates what it gave.
+ * apart later and replayed as a unit test: the Snapshot and what the Footprint source
+ * answered are the inputs `identify` needs, the Candidates and warnings what it gave.
  */
 export interface RequestRecord {
   id: string;
@@ -15,7 +24,10 @@ export interface RequestRecord {
   snapshot: Snapshot;
   /** The raw absolute-orientation reading the heading came from (phone only). */
   orientation?: OrientationReading;
-  overpass: OverpassExchange[];
+  /** Whether the Footprint source covered the position; absent if it was never asked. */
+  covered?: boolean;
+  /** The Footprints the source gave for the Sight Cone's circle. */
+  footprints?: Footprint[];
   candidates?: {
     number: number;
     footprintId: string;
@@ -24,6 +36,7 @@ export interface RequestRecord {
     position: LatLng;
     geoUri: string;
   }[];
+  warnings?: IdentificationWarning[];
   error?: string;
   durationMs: number;
   chosen?: Choice;
@@ -51,23 +64,31 @@ export function newRequestId(now = new Date()): string {
 }
 
 /**
- * The record of one request to `POST /api/identify` as it starts; `overpass` fills up while
- * it runs, and finishRecord adds what came of it.
+ * The record of one request to `POST /api/identify` as it starts; recordingSource fills in
+ * what the Footprint source answers, and finishRecord what came of it.
  */
-export function startRecord(
-  id: string,
-  { snapshot, mode, orientation }: IdentifyRequest,
-  overpass: OverpassExchange[],
-  startedAt = new Date(),
-): RequestRecord {
+export function startRecord(id: string, { snapshot, mode, orientation }: IdentifyRequest, startedAt = new Date()): RequestRecord {
   return {
     id,
     startedAt: startedAt.toISOString(),
     mode,
     snapshot,
     ...(orientation ? { orientation } : {}),
-    overpass,
     durationMs: 0,
+  };
+}
+
+/** The Footprint source, keeping what it answers in the record. */
+export function recordingSource(source: FootprintSource, record: RequestRecord): FootprintSource {
+  return {
+    async covers(position) {
+      record.covered = await source.covers(position);
+      return record.covered;
+    },
+    async footprintsAround(centre, radiusMetres) {
+      record.footprints = await source.footprintsAround(centre, radiusMetres);
+      return record.footprints;
+    },
   };
 }
 
@@ -80,6 +101,8 @@ export function finishRecord(
   if ("error" in outcome) {
     record.error = outcome.error;
   } else {
+    const { warnings } = outcome.identification;
+    if (warnings.length > 0) record.warnings = warnings;
     record.candidates = outcome.identification.candidates.map(({ number, footprint, distanceMetres, location }) => ({
       number,
       footprintId: footprint.id,
@@ -115,17 +138,21 @@ export async function writeRequestLog(dir: string, message: RequestLogMessage): 
   }
 }
 
-function summary({ id, startedAt, mode, snapshot, overpass, candidates, error }: RequestRecord): string {
+function summary({ id, startedAt, mode, snapshot, covered, footprints, candidates, warnings, error }: RequestRecord): string {
   const { position, heading, accuracyMetres } = snapshot;
-  const calls = overpass
-    .map((call) => `overpass ${call.status ?? call.error ?? "no answer"} in ${Math.round(call.durationMs)} ms`)
-    .join(", ");
+  const source =
+    covered === false
+      ? "outside the Coverage Area"
+      : footprints
+        ? `${footprints.length} Footprint${footprints.length === 1 ? "" : "s"}`
+        : "";
+  const listed = candidates?.length
+    ? `: ${candidates.map((c) => `${c.number} ${c.label ?? "unnamed"} (${c.footprintId}) ${Math.round(c.distanceMetres)} m`).join(", ")}`
+    : "";
   const outcome = error
     ? `failed: ${error}`
-    : `${candidates?.length ?? 0} Candidate${candidates?.length === 1 ? "" : "s"}: ` +
-      (candidates ?? [])
-        .map((c) => `${c.number} ${c.label ?? "unnamed"} (${c.footprintId}) ${Math.round(c.distanceMetres)} m`)
-        .join(", ");
+    : `${candidates?.length ?? 0} Candidate${candidates?.length === 1 ? "" : "s"}${listed}` +
+      (warnings?.length ? `, warnings: ${warnings.join(", ")}` : "");
   return [
     startedAt,
     id,
@@ -133,7 +160,7 @@ function summary({ id, startedAt, mode, snapshot, overpass, candidates, error }:
     `${position.lat},${position.lon}`,
     `±${Math.round(accuracyMetres)} m`,
     `heading ${Math.round(heading)}°`,
-    calls,
+    source,
     `→ ${outcome}`,
   ]
     .filter(Boolean)

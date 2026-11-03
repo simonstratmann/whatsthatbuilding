@@ -6,7 +6,7 @@
 
 **Status:** ready-for-agent
 
-- [ ] `POST /api/identify` takes a Snapshot and returns Candidates, warnings, Sight Cone and Line of Sight, typed in `shared`
+- [x] `POST /api/identify` takes a Snapshot and returns Candidates, warnings, Sight Cone and Line of Sight, typed in `shared`
 - [x] The phone and dev mode use the API; no identification or Overpass code runs in the browser
 - [x] The production image runs only the Node service (no nginx); `OVERPASS_URL` is read by the server
 - [x] `/api/interpreter` and its nginx/Vite proxy rules are removed

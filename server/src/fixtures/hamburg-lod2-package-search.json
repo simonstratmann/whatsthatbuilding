@@ -1,0 +1,374 @@
+{
+  "success": true,
+  "result": {
+    "count": 16,
+    "results": [
+      {
+        "name": "3d-gebaeudemodell-lod2-de-hamburg2",
+        "title": "3D-Gebäudemodell LoD2-DE Hamburg",
+        "resources": [
+          {
+            "url": "https://daten-hamburg.de/geographie_geologie_geobasisdaten/3d_stadtmodell_lod2/LoD2-DE_HH_2016-11-22.zip"
+          },
+          {
+            "url": "https://daten-hamburg.de/geographie_geologie_geobasisdaten/3d_stadtmodell_lod2/LoD2-DE_HH_2017-12-31.zip"
+          },
+          {
+            "url": "https://daten-hamburg.de/geographie_geologie_geobasisdaten/3d_stadtmodell_lod2/LoD2-DE_HH_2018-12-31.zip"
+          },
+          {
+            "url": "https://daten-hamburg.de/geographie_geologie_geobasisdaten/3d_stadtmodell_lod2/LoD2-DE_HH_2019-12-31.zip"
+          },
+          {
+            "url": "https://daten-hamburg.de/geographie_geologie_geobasisdaten/3d_stadtmodell_lod2/LoD2-DE_HH_2021-04-01.zip"
+          },
+          {
+            "url": "https://daten-hamburg.de/geographie_geologie_geobasisdaten/3d_stadtmodell_lod2/LoD2-DE_HH_2022-04-01.zip"
+          },
+          {
+            "url": "https://daten-hamburg.de/opendata/3d_stadtmodell_lod2/LoD2-DE_HH_2023-04-01.zip"
+          },
+          {
+            "url": "https://daten-hamburg.de/gdi3d/datasource-data/LoD2/tileset.json"
+          },
+          {
+            "url": "https://daten-hamburg.de/opendata/3d_stadtmodell_lod2/LoD2-DE_HH_2025-03-14.zip"
+          },
+          {
+            "url": "https://daten-hamburg.de/opendata/3d_stadtmodell_lod2/LoD2-DE_HH_2026-04-28.zip"
+          },
+          {
+            "url": "http://metaver.de/trefferanzeige?docuuid=2C1F2EEC-CF9F-4D8B-ACAC-79D8C1334D5E"
+          }
+        ]
+      },
+      {
+        "name": "3d-gebaeudemodell-lod2-de-hamburg1",
+        "title": "3D-Gebäudemodell LoD2-DE Hamburg",
+        "resources": [
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2016-11-22_96132_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2017-12-31_96133_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2018-12-31_96134_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2019-12-31_96135_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2021-04-01_96136_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2022-04-01_118360_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2023-04-01_162858_snap_1.zip"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/trefferanzeige_201671_snap_38.HTML"
+          }
+        ]
+      },
+      {
+        "name": "3d-gebaeudemodell-lod2-de-hamburg",
+        "title": "3D-Gebäudemodell LoD2-DE Hamburg",
+        "resources": [
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2016-11-22_96132_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2017-12-31_96133_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2018-12-31_96134_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2019-12-31_96135_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2021-04-01_96136_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2022-04-01_118360_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2023-04-01_162858_snap_1.zip"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/trefferanzeige_185042_snap_35.HTML"
+          }
+        ]
+      },
+      {
+        "name": "3d-stadtmodell-lod2-de-hamburg12",
+        "title": "3D-Stadtmodell LoD2-DE Hamburg",
+        "resources": [
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2016-11-22_96132_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2017-12-31_96133_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2018-12-31_96134_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2019-12-31_96135_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2021-04-01_96136_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2022-04-01_118360_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/trefferanzeige_162147_snap_32.HTML"
+          }
+        ]
+      },
+      {
+        "name": "3d-stadtmodell-lod2-de-hamburg11",
+        "title": "3D-Stadtmodell LoD2-DE Hamburg",
+        "resources": [
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2016-11-22_96132_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2017-12-31_96133_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2018-12-31_96134_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2019-12-31_96135_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2021-04-01_96136_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2022-04-01_118360_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/trefferanzeige_140524_snap_28.HTML"
+          }
+        ]
+      },
+      {
+        "name": "3d-stadtmodell-lod2-de-hamburg10",
+        "title": "3D-Stadtmodell LoD2-DE Hamburg",
+        "resources": [
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2016-11-22_96132_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2017-12-31_96133_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2018-12-31_96134_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2019-12-31_96135_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2021-04-01_96136_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2022-04-01_118360_snap_1.GML"
+          },
+          {
+            "url": "https://metaver.de/trefferanzeige?docuuid=2C1F2EEC-CF9F-4D8B-ACAC-79D8C1334D5E"
+          }
+        ]
+      },
+      {
+        "name": "3d-stadtmodell-lod2-de-hamburg9",
+        "title": "3D-Stadtmodell LoD2-DE Hamburg",
+        "resources": [
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2016-11-22_96132_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2017-12-31_96133_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2018-12-31_96134_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2019-12-31_96135_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2021-04-01_96136_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2022-04-01_118360_snap_1.GML"
+          },
+          {
+            "url": "https://metaver.de/trefferanzeige?docuuid=2C1F2EEC-CF9F-4D8B-ACAC-79D8C1334D5E"
+          }
+        ]
+      },
+      {
+        "name": "3d-stadtmodell-lod2-de-hamburg8",
+        "title": "3D-Stadtmodell LoD2-DE Hamburg",
+        "resources": [
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2016-11-22_96132_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2017-12-31_96133_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2018-12-31_96134_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2019-12-31_96135_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2021-04-01_96136_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2022-04-01_118360_snap_1.GML"
+          },
+          {
+            "url": "https://metaver.de/trefferanzeige?docuuid=2C1F2EEC-CF9F-4D8B-ACAC-79D8C1334D5E"
+          }
+        ]
+      },
+      {
+        "name": "3d-stadtmodell-lod2-de-hamburg7",
+        "title": "3D-Stadtmodell LoD2-DE Hamburg",
+        "resources": [
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2016-11-22_21283_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2017-12-31_25764_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2018-12-31_49920_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2019-12-31_49921_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/trefferanzeige_63748_snap_18.HTML"
+          }
+        ]
+      },
+      {
+        "name": "3d-stadtmodell-lod2-de-hamburg6",
+        "title": "3D-Stadtmodell LoD2-DE Hamburg",
+        "resources": [
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2016-11-22_21283_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2017-12-31_25764_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2018-12-31_49920_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2019-12-31_49921_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/trefferanzeige_49922_snap_14.HTML"
+          }
+        ]
+      },
+      {
+        "name": "3d-stadtmodell-lod2-de-hamburg5",
+        "title": "3D-Stadtmodell LoD2-DE Hamburg",
+        "resources": [
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2016-11-22_21283_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2017-12-31_25764_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2019-04-01_38126_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2020-04-01_49500_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/trefferanzeige_49501_snap_13.HTML"
+          }
+        ]
+      },
+      {
+        "name": "3d-stadtmodell-lod2-de-hamburg4",
+        "title": "3D-Stadtmodell LoD2-DE Hamburg",
+        "resources": [
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2019-04-01_38126_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2017-12-31_25764_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2016-11-22_21283_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/trefferanzeige_49476_snap_12.HTML"
+          }
+        ]
+      },
+      {
+        "name": "3d-stadtmodell-lod2-de-hamburg3",
+        "title": "3D-Stadtmodell LoD2-DE Hamburg",
+        "resources": [
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2016-11-22_21283_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2017-12-31_25764_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/trefferanzeige_25765_snap_9.HTML"
+          }
+        ]
+      },
+      {
+        "name": "3d-stadtmodell-lod2-de-hamburg2",
+        "title": "3D-Stadtmodell LoD2-DE Hamburg",
+        "resources": [
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2016-11-22_21283_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/trefferanzeige_25284_snap_8.HTML"
+          }
+        ]
+      },
+      {
+        "name": "3d-stadtmodell-lod2-de-hamburg1",
+        "title": "3D-Stadtmodell LoD2-DE Hamburg",
+        "resources": [
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2016_19782_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/trefferanzeige_19933_snap_2.HTML"
+          }
+        ]
+      },
+      {
+        "name": "3d-stadtmodell-lod2-de-hamburg",
+        "title": "3D-Stadtmodell LoD2-DE Hamburg",
+        "resources": [
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/lod2-de_hh_2016_19782_snap_1.GML"
+          },
+          {
+            "url": "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/trefferanzeige_19783_snap_1.HTML"
+          }
+        ]
+      }
+    ]
+  }
+}
