@@ -3,24 +3,19 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "workspaces": ["shared", "server", "web"],
   "scripts": {
-    "dev": "vite --host",
-    "dev:https": "vite --host --mode https",
-    "build": "npm run typecheck && vite build",
-    "preview": "vite preview --host",
-    "preview:https": "VITE_REQUEST_LOG=true vite build --mode https && vite preview --host --mode https",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
+    "dev": "npm run dev -w web",
+    "dev:https": "npm run dev:https -w web",
+    "build": "npm run typecheck && npm run build -w web",
+    "preview": "npm run preview -w web",
+    "preview:https": "npm run preview:https -w web",
+    "typecheck": "npm run typecheck --workspaces",
     "test": "vitest run"
   },
   "devDependencies": {
-    "@types/leaflet": "^1.9.22",
     "@types/node": "^26.6.6",
-    "@vitejs/plugin-basic-ssl": "^2.3.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.5",
     "vitest": "^5.0.5"
-  },
-  "dependencies": {
-    "leaflet": "^1.9.4"
   }
 }

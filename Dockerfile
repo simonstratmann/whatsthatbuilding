@@ -7,6 +7,9 @@
 FROM node:24-alpine AS source
 WORKDIR /app
 COPY package.json package-lock.json ./
+COPY web/package.json web/
+COPY server/package.json server/
+COPY shared/package.json shared/
 RUN npm ci
 COPY . .
 
@@ -17,15 +20,15 @@ FROM nginx:1.29-alpine AS production
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 # The nginx image runs every script in /docker-entrypoint.d/ before starting.
 COPY docker/write-overpass-proxy.sh /docker-entrypoint.d/40-write-overpass-proxy.sh
-COPY --from=production-build /app/dist /usr/share/nginx/html
+COPY --from=production-build /app/web/dist /usr/share/nginx/html
 EXPOSE 80
 
 FROM source AS dev
 # The node user needs to write the logs and the temporary copy of the Vite config that Vite
 # writes to node_modules/.vite-temp on start-up.
-RUN VITE_REQUEST_LOG=true npx vite build \
- && mkdir -p logs node_modules/.vite-temp \
- && chown -R node:node logs node_modules/.vite-temp
+RUN VITE_REQUEST_LOG=true npm run build -w web \
+ && mkdir -p logs web/node_modules/.vite-temp \
+ && chown -R node:node logs web/node_modules/.vite-temp
 USER node
 EXPOSE 4173
 # Request logs: requests.log and requests/<id>.json.

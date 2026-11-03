@@ -4,7 +4,7 @@
 # Run by the nginx image's entrypoint before nginx starts; nginx.conf includes the result.
 set -eu
 target=/etc/nginx/overpass-proxy.conf
-# Same default as dev-server/overpass-proxy.ts.
+# Same default as web/dev-server/overpass-proxy.ts.
 url="${OVERPASS_URL:-https://overpass-api.de/api/interpreter}"
 
 case "$url" in
