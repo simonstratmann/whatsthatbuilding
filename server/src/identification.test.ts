@@ -18,7 +18,7 @@ function building(
   south: number,
   east: number,
   north: number,
-  tags: Pick<Footprint, "address"> = {},
+  tags: Pick<Footprint, "address" | "functionCode"> = {},
 ): Footprint {
   return {
     id,
@@ -209,6 +209,25 @@ describe("identify", () => {
     const { candidates } = await identify(facing(0), sourceOf(hall), failing);
 
     expect(candidates.map((c) => [c.footprint.id, c.location.label])).toEqual([["hall", "Rathausstraße 15"]]);
+  });
+
+  it("names each Candidate's building type from its AdV function code", async () => {
+    const home = building("home", -10, 90, 10, 110, { functionCode: "31001_1010" });
+    const church = building("church", -10, 150, 10, 170, { functionCode: "31001_3041" });
+
+    const { candidates } = await identify(facing(0), sourceOf(home, church));
+
+    expect(candidates.map((c) => c.buildingType)).toEqual(["Wohnhaus", "Kirche"]);
+  });
+
+  it("calls a building with an unknown function code just a building, and leaves out the type when there's no code", async () => {
+    const odd = building("odd", -10, 90, 10, 110, { functionCode: "31001_7777" });
+    const bare = building("bare", -10, 150, 10, 170);
+
+    const { candidates } = await identify(facing(0), sourceOf(odd, bare));
+
+    expect(candidates[0]?.buildingType).toBe("Gebäude");
+    expect(candidates[1]).not.toHaveProperty("buildingType");
   });
 
   it("puts a Candidate's Location at the centre of its Footprint, with a geo: link carrying the label", async () => {

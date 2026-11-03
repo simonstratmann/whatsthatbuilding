@@ -36,6 +36,10 @@ _Avoid_: Region, supported area
 A building whose Footprint lies in the Sight Cone, offered for the user to choose from. The user always picks one; the app never decides alone.
 _Avoid_: Match, result, suggestion
 
+**Building Type**:
+What a building is used for, in a short German word or two ("Wohnhaus", "Kirche"), named from the AdV function code of its Footprint. Shown in the Candidate list next to the height.
+_Avoid_: Function (that's the code), category, use
+
 **Hidden Candidate**:
 A Candidate that nearer, taller buildings block completely as seen from the user's position. It stays in the list but ranks below Candidates the user can see.
 _Avoid_: Occluded, covered

@@ -1,5 +1,6 @@
 import L from "leaflet";
 import type { Candidate, Identification } from "@whatisthatbuilding/shared";
+import { candidateEntryText } from "./candidate-entry.ts";
 import { addBuildingDataCredit, addOsmTiles, toLeaflet } from "./leaflet-map.ts";
 
 const FIT_PADDING_PIXELS = 24;
@@ -61,7 +62,7 @@ export function showCandidateScreen(
     item.value = candidate.number;
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = `${candidate.location.label ?? "Unnamed building"} · ${formatDistance(candidate.distanceMetres)}`;
+    button.textContent = candidateEntryText(candidate);
     button.addEventListener("click", () => choose(candidate));
     item.append(button);
     list.append(item);
@@ -91,8 +92,4 @@ export function showCandidateScreen(
       map.remove();
     },
   };
-}
-
-function formatDistance(metres: number): string {
-  return `${Math.round(metres)} m`;
 }

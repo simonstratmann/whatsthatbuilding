@@ -13,6 +13,7 @@ import {
   type Point,
   type Snapshot,
 } from "@whatisthatbuilding/shared";
+import { buildingTypeOf } from "./building-types.ts";
 
 export interface FootprintSource {
   /** Whether the Coverage Area includes the position: whether there is building data for it. */
@@ -84,7 +85,14 @@ export async function identify(
     .map(({ footprint, distanceMetres }, index) => {
       const name = names?.nameOf(footprint);
       const withName = name ? { ...footprint, name } : footprint;
-      return { number: index + 1, footprint: withName, distanceMetres, location: locationOf(withName) };
+      const buildingType = footprint.functionCode ? buildingTypeOf(footprint.functionCode) : undefined;
+      return {
+        number: index + 1,
+        footprint: withName,
+        distanceMetres,
+        location: locationOf(withName),
+        ...(buildingType ? { buildingType } : {}),
+      };
     });
   return { candidates, warnings: [], ...searched };
 }

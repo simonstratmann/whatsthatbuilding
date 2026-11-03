@@ -93,6 +93,8 @@ export interface Candidate {
   footprint: Footprint;
   distanceMetres: number;
   location: Location;
+  /** A short German name for what the building is, e.g. "Wohnhaus"; absent when the building model doesn't say. */
+  buildingType?: string;
 }
 
 /**
