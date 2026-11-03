@@ -107,6 +107,14 @@ describe("lod2Store", () => {
     expect(await store.covers(offset(-500, 500))).toBe(true);
   });
 
+  it("fails an import that lists the same tile twice, keeping the previous one", async () => {
+    await store.replaceTiles("hamburg", tiles(tile("hh-old", [building("old", 0, 10, 10, 20)])));
+
+    await expect(store.replaceTiles("hamburg", tiles(tile("twice", []), tile("twice", [])))).rejects.toThrow(/duplicate key/);
+
+    expect((await store.footprintsAround(ORIGIN, 500)).map((f) => f.id)).toEqual(["old"]);
+  });
+
   it("stores a building that two tiles both list once, and counts it once", async () => {
     const onTheBoundary = building("on-the-boundary", -5, 10, 5, 20);
 
@@ -129,5 +137,25 @@ describe("lod2Store", () => {
     await expect(store.replaceTiles("hamburg", failing())).rejects.toThrow(/broke off/);
 
     expect((await store.footprintsAround(ORIGIN, 500)).map((f) => f.id)).toEqual(["old"]);
+  });
+
+  it("adds a single tile, and leaves it alone when it is added again", async () => {
+    const added = await store.addTile("niedersachsen", tile("ni-a", [building("house", 0, 10, 10, 20)]));
+    const again = await store.addTile("niedersachsen", tile("ni-a", [building("other", 0, 30, 10, 40)]));
+
+    expect([added, again]).toEqual([1, 0]);
+    expect((await store.footprintsAround(ORIGIN, 500)).map((f) => f.id)).toEqual(["house"]);
+    expect(await store.covers(ORIGIN)).toBe(true);
+  });
+
+  it("knows which tiles are loaded and which the source doesn't have", async () => {
+    await store.addTile("niedersachsen", tile("ni-a", []));
+    await store.markMissing("ni-b");
+    await store.markMissing("ni-b");
+
+    expect(await store.knownTiles(["ni-a", "ni-b", "ni-c"])).toEqual(new Set(["ni-a", "ni-b"]));
+    // A missing tile covers nothing.
+    await store.replaceTiles("niedersachsen", tiles());
+    expect(await store.covers(ORIGIN)).toBe(false);
   });
 });

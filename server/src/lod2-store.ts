@@ -13,6 +13,18 @@ export interface Lod2Store extends FootprintSource {
    * until it commits, and if it fails, the previous import stays in use.
    */
   replaceTiles(dataset: Lod2Dataset, tiles: AsyncIterable<Lod2Tile>): Promise<{ tiles: number; buildings: number }>;
+  /**
+   * Adds one tile and its buildings, unless a tile of that name is in already (another
+   * process may have got there first); returns how many buildings went in.
+   */
+  addTile(dataset: Lod2Dataset, tile: Lod2Tile): Promise<number>;
+  /**
+   * Records a tile the state's download server doesn't have, so nobody asks for it again.
+   * Delete its row from lod2_tile_missing to have it asked for once more.
+   */
+  markMissing(name: string): Promise<void>;
+  /** Of these tile names, the ones loaded or marked missing. */
+  knownTiles(names: string[]): Promise<Set<string>>;
   close(): Promise<void>;
 }
 
@@ -29,6 +41,11 @@ const SCHEMA = `
   );
   CREATE INDEX IF NOT EXISTS lod2_tile_extent ON lod2_tile USING gist (extent);
   CREATE INDEX IF NOT EXISTS lod2_tile_dataset ON lod2_tile (dataset);
+  -- Tiles that would be in the Coverage Area's grid but don't exist: outside Niedersachsen.
+  CREATE TABLE IF NOT EXISTS lod2_tile_missing (
+    name text PRIMARY KEY,
+    checked_at timestamptz NOT NULL DEFAULT now()
+  );
   CREATE TABLE IF NOT EXISTS footprint (
     id text PRIMARY KEY,
     tile text NOT NULL REFERENCES lod2_tile (name) ON DELETE CASCADE,
@@ -111,16 +128,47 @@ export function lod2Store(databaseUrl: string): Lod2Store {
       });
     },
 
+    async addTile(dataset, tile) {
+      await ready();
+      return inTransaction(pool, (client) => insertTile(client, dataset, tile, { unlessThere: true }));
+    },
+
+    async markMissing(name) {
+      await ready();
+      await pool.query("INSERT INTO lod2_tile_missing (name) VALUES ($1) ON CONFLICT (name) DO NOTHING", [name]);
+    },
+
+    async knownTiles(names) {
+      await ready();
+      const { rows } = await pool.query<{ name: string }>(
+        `SELECT name FROM lod2_tile WHERE name = ANY ($1::text[])
+         UNION SELECT name FROM lod2_tile_missing WHERE name = ANY ($1::text[])`,
+        [names],
+      );
+      return new Set(rows.map((row) => row.name));
+    },
+
     close: () => pool.end(),
   };
 }
 
-/** Stores the tile and its buildings; returns how many buildings went in. */
-async function insertTile(client: pg.PoolClient, dataset: Lod2Dataset, { name, extent, buildings }: Lod2Tile): Promise<number> {
-  await client.query(
-    "INSERT INTO lod2_tile (name, dataset, extent) VALUES ($1, $2, ST_SetSRID(ST_GeomFromGeoJSON($3), 4326))",
+/**
+ * Stores the tile and its buildings; returns how many buildings went in. With `unlessThere`, a
+ * tile of that name stored already is left alone; without it, a second one is an error.
+ */
+async function insertTile(
+  client: pg.PoolClient,
+  dataset: Lod2Dataset,
+  { name, extent, buildings }: Lod2Tile,
+  { unlessThere = false } = {},
+): Promise<number> {
+  // With unlessThere, a second insert of the same name waits here until the first commits, then does nothing.
+  const { rowCount: inserted } = await client.query(
+    `INSERT INTO lod2_tile (name, dataset, extent) VALUES ($1, $2, ST_SetSRID(ST_GeomFromGeoJSON($3), 4326))
+     ${unlessThere ? "ON CONFLICT (name) DO NOTHING" : ""}`,
     [name, dataset, JSON.stringify({ type: "Polygon", coordinates: [closed(extent)] })],
   );
+  if (!inserted) return 0;
   const stored = buildings.filter((b) => b.rings.length > 0);
   if (stored.length === 0) return 0;
   // One statement per tile: each column goes in as an array.

@@ -230,6 +230,45 @@ describe("identify", () => {
     expect(lineOfSight.from).toEqual(ORIGIN);
   });
 
+  it("asks for the Footprints while it checks the Coverage Area, so a source that downloads them can do both at once", async () => {
+    const shop = building("shop", -10, 90, 10, 110);
+    let footprintsAsked!: () => void;
+    const asked = new Promise<void>((resolve) => (footprintsAsked = resolve));
+    const source: FootprintSource = {
+      // Answers only once the Footprints have been asked for.
+      covers: async () => (await asked, true),
+      footprintsAround: async () => (footprintsAsked(), [shop]),
+    };
+
+    const { candidates } = await identify(facing(0), source);
+
+    expect(candidates.map((c) => c.footprint.id)).toEqual(["shop"]);
+  });
+
+  it("warns about a Snapshot outside the Coverage Area even when the Footprints around it can't be had", async () => {
+    const source: FootprintSource = {
+      covers: async () => false,
+      footprintsAround: async () => {
+        throw new Error("download failed");
+      },
+    };
+
+    const { warnings } = await identify(facing(0), source);
+
+    expect(warnings).toEqual(["outside-coverage-area"]);
+  });
+
+  it("fails when the Footprints can't be had inside the Coverage Area", async () => {
+    const source: FootprintSource = {
+      covers: async () => true,
+      footprintsAround: async () => {
+        throw new Error("download failed");
+      },
+    };
+
+    await expect(identify(facing(0), source)).rejects.toThrow(/download failed/);
+  });
+
   it("describes the Sight Cone it searched: from the user out to 500 m, ±15° around the heading", async () => {
     const { sightCone } = await identify(facing(355), sourceOf());
 

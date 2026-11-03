@@ -5,6 +5,9 @@ import { parseLod2Tile } from "./lod2-parser.ts";
 // Three buildings cut from Hamburg's tile LoD2_32_565_5933_1_HH (release 2026-04-28), unchanged.
 // Expected positions are PostGIS's ST_Transform of the GML's EPSG:25832 coordinates.
 const excerpt = await readFile(new URL("./fixtures/LoD2_32_565_5933_1_HH-excerpt.gml", import.meta.url), "utf8");
+// Two buildings cut from Niedersachsen's tile LoD2_32_550_5803_1_ni (Hannover, as LGLN served it
+// in 2026), unchanged.
+const niedersachsenExcerpt = await readFile(new URL("./fixtures/LoD2_32_550_5803_1_ni-excerpt.gml", import.meta.url), "utf8");
 
 /** Matches a coordinate to within about 1 cm. */
 function closeTo(degrees: number) {
@@ -62,5 +65,43 @@ describe("parseLod2Tile", () => {
         expect.anything(),
       ],
     ]);
+  });
+});
+
+describe("parseLod2Tile on Niedersachsen's data", () => {
+  const tile = parseLod2Tile(niedersachsenExcerpt);
+
+  it("names the tile and gives its square in WGS84", () => {
+    expect(tile.name).toBe("LoD2_32_550_5803_1_NI");
+    expect(tile.extent[0]).toEqual({ lat: closeTo(52.3749825), lon: closeTo(9.7344842) });
+    expect(tile.extent[2]).toEqual({ lat: closeTo(52.3838799), lon: closeTo(9.7493247) });
+  });
+
+  it("turns each building into a Footprint with its height, function and address", () => {
+    expect(tile.buildings.map(({ rings, ...rest }) => rest)).toEqual([
+      {
+        id: "DENILD4300009SgH",
+        heightMetres: 16.589,
+        functionCode: "31001_1000",
+        address: { street: "Eckerstraße", houseNumber: "10", city: "Hannover, Landeshauptstadt" },
+      },
+      {
+        // Made of four building parts: the tallest part's height counts.
+        id: "DENILD4300009UT4",
+        heightMetres: 3.82,
+        functionCode: "31001_2000",
+        address: { city: "Hannover, Landeshauptstadt" },
+      },
+    ]);
+  });
+
+  it("takes the outline from the ground surfaces, in WGS84, one ring for each building part", () => {
+    const [house, garages] = tile.buildings;
+
+    expect(house?.rings).toHaveLength(1);
+    expect(house?.rings[0]?.[0]).toEqual({ lat: closeTo(52.3825845), lon: closeTo(9.7435651) });
+    expect(garages?.rings).toHaveLength(4);
+    expect(garages?.rings[0]?.[0]).toEqual({ lat: closeTo(52.3830163), lon: closeTo(9.7436962) });
+    expect(garages?.rings[1]?.[0]).toEqual({ lat: closeTo(52.3830846), lon: closeTo(9.7434967) });
   });
 });

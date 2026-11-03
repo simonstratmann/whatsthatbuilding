@@ -10,8 +10,12 @@ export function addOsmTiles(map: L.Map): void {
   }).addTo(map);
 }
 
-/** The credit the licence of the building model the Footprints come from asks for. */
+/** The credits the licences of the building models the Footprints come from ask for. */
 export function addBuildingDataCredit(map: L.Map): void {
+  // LGLN asks for the year the data was obtained; tiles are downloaded as Snapshots need them.
+  map.attributionControl.addAttribution(
+    `LGLN (${new Date().getFullYear()}) <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>`,
+  );
   map.attributionControl.addAttribution(
     'Freie und Hansestadt Hamburg, LGV (<a href="https://www.govdata.de/dl-de/by-2-0">dl-de/by-2.0</a>)',
   );

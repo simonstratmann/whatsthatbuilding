@@ -1,9 +1,9 @@
 import { createWriteStream } from "node:fs";
-import { mkdir, readdir, readFile, rename, rm, stat } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm } from "node:fs/promises";
 import { basename, join } from "node:path";
-import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import yauzl from "yauzl";
+import { exists, saveBody } from "./file-cache.ts";
 import { parseLod2Tile, type Lod2Tile } from "./lod2-parser.ts";
 import type { Lod2Store } from "./lod2-store.ts";
 
@@ -100,15 +100,8 @@ export async function importHamburg({
 
 async function download(url: string, path: string, fetchFn: typeof fetch): Promise<void> {
   const response = await fetchFn(url);
-  if (!response.ok || !response.body) throw new Error(`Downloading ${url} failed: ${response.status}`);
-  const part = `${path}.part`;
-  try {
-    await pipeline(Readable.fromWeb(response.body), createWriteStream(part));
-    await rename(part, path);
-  } catch (error) {
-    await rm(part, { force: true });
-    throw error;
-  }
+  if (!response.ok) throw new Error(`Downloading ${url} failed: ${response.status}`);
+  await saveBody(response, path);
 }
 
 /** Unpacks the zip's .gml files, flat, into `dir`; returns how many there were. */
@@ -137,11 +130,4 @@ async function extractGml(zipPath: string, dir: string): Promise<number> {
     zip.close();
   }
   return names.size;
-}
-
-async function exists(path: string): Promise<boolean> {
-  return stat(path).then(
-    () => true,
-    () => false,
-  );
 }

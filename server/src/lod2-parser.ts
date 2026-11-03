@@ -1,6 +1,6 @@
 import type { Address, Footprint, LatLng } from "@whatisthatbuilding/shared";
-import proj4 from "proj4";
 import { SaxesParser, type SaxesTagNS } from "saxes";
+import { fromUtm32 } from "./utm32.ts";
 
 /** A building as the LoD2 model describes it; the store adds the centre. */
 export type Lod2Building = Omit<Footprint, "centre" | "name">;
@@ -18,9 +18,6 @@ const GML = "http://www.opengis.net/gml";
 const CORE = "http://www.opengis.net/citygml/1.0";
 const BLDG = "http://www.opengis.net/citygml/building/1.0";
 const XAL = "urn:oasis:names:tc:ciq:xsdschema:xAL:2.0";
-
-/** ETRS89 / UTM zone 32N, the coordinate system of both states' LoD2 data. */
-const toWgs84 = proj4("+proj=utm +zone=32 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs", "WGS84");
 
 interface BuildingInProgress {
   id: string;
@@ -165,8 +162,7 @@ function positions(coordinates: number[], dimension: number): LatLng[] {
 }
 
 function toLatLng(east: number, north: number): LatLng {
-  const [lon, lat] = toWgs84.forward([east, north]) as [number, number];
-  return { lat, lon };
+  return fromUtm32({ east, north });
 }
 
 function withoutClosingPoint(ring: LatLng[]): LatLng[] {

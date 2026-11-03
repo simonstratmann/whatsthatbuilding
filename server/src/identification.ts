@@ -32,11 +32,19 @@ export async function identify(snapshot: Snapshot, source: FootprintSource): Pro
       to: destination(snapshot.position, snapshot.heading, SIGHT_CONE_RANGE_METRES),
     },
   };
-  if (!(await source.covers(snapshot.position))) {
+  // Both at once: a source that first has to download building data can fetch it all in one go.
+  const [covered, around] = await Promise.allSettled([
+    source.covers(snapshot.position),
+    source.footprintsAround(snapshot.position, SIGHT_CONE_RANGE_METRES),
+  ]);
+  if (covered.status === "rejected") throw covered.reason;
+  // Outside the Coverage Area the Footprints don't matter, nor does failing to get them.
+  if (!covered.value) {
     return { candidates: [], warnings: ["outside-coverage-area"], ...searched };
   }
+  if (around.status === "rejected") throw around.reason;
+  const footprints = around.value;
 
-  const footprints = await source.footprintsAround(snapshot.position, SIGHT_CONE_RANGE_METRES);
   const toLocal = localProjection(snapshot.position);
   const cone = sightConeOverlapTest(snapshot.heading);
 

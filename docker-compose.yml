@@ -13,6 +13,13 @@
 # minutes to load; the database grows by about 200 MB), and again each April when a new
 # release comes out:
 #   docker compose run --rm app node server/src/import-hamburg.ts
+#
+# Niedersachsen's tiles (1 km each, up to 50 MB of GML) are downloaded from LGLN the first
+# time a Snapshot needs them. To spare an area that first wait, preload it (WGS84 degrees:
+# west south east north), e.g. Hannover:
+#   docker compose run --rm app node server/src/preload-niedersachsen.ts 9.65 52.32 9.85 52.43
+# A first Snapshot in a new area waits for its tiles, usually under 10 s; if LGLN is slow it
+# can pass nginx's default 60 s proxy_read_timeout, so raise that for /api/ (e.g. to 180s).
 
 x-app-environment: &app-environment
   DATABASE_URL: postgres://building:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgis:5432/building

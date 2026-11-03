@@ -4,13 +4,13 @@
 
 **Blocked by:** 03 (Identify from Hamburg's LoD2 data)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The tiles for a point and radius are computed correctly, including near a tile corner (tested with the download faked)
-- [ ] A Snapshot in an unloaded Niedersachsen tile downloads, stores and answers; a second Snapshot there doesn't download again
-- [ ] Concurrent Snapshots needing the same tile download it only once
-- [ ] The preload command loads all tiles in a given bounding box and skips tiles already loaded
-- [ ] The parser is tested on a small saved Niedersachsen CityGML excerpt
-- [ ] A failed tile download is logged and shown on the phone as the existing retryable error
-- [ ] Snapshots outside Niedersachsen and Hamburg still get the outside-Coverage-Area message
-- [ ] The mini-map shows "LGLN (year) CC BY 4.0"
+- [x] The tiles for a point and radius are computed correctly, including near a tile corner (tested with the download faked)
+- [x] A Snapshot in an unloaded Niedersachsen tile downloads, stores and answers; a second Snapshot there doesn't download again
+- [x] Concurrent Snapshots needing the same tile download it only once
+- [x] The preload command loads all tiles in a given bounding box and skips tiles already loaded
+- [x] The parser is tested on a small saved Niedersachsen CityGML excerpt
+- [x] A failed tile download is logged and shown on the phone as the existing retryable error
+- [x] Snapshots outside Niedersachsen and Hamburg still get the outside-Coverage-Area message
+- [x] The mini-map shows "LGLN (year) CC BY 4.0"
