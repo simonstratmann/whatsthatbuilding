@@ -1,9 +1,9 @@
 import L from "leaflet";
-import { showCandidateScreen, type CandidateScreen } from "./candidate-screen";
+import type { CandidateScreen } from "./candidate-screen.ts";
 import { bearing, destination, type LatLng } from "@whatisthatbuilding/shared";
-import { addOsmTiles, fromLeaflet, toLeaflet } from "./leaflet-map";
-import { identifyOnServer, logChoice } from "./identify-client";
-import { requestIdLine } from "./request-id";
+import { identifyOnServer } from "./identify-client.ts";
+import { addOsmTiles, fromLeaflet, toLeaflet } from "./leaflet-map.ts";
+import { showResultScreen } from "./result-screen.ts";
 
 const START: LatLng = { lat: 52.3745, lon: 9.7386 }; // Kröpcke, Hannover
 const HANDLE_DISTANCE_METRES = 150;
@@ -70,22 +70,10 @@ export function startDevMode(app: HTMLElement): void {
     candidateArea.innerHTML = `<p class="notice">Looking for buildings…</p>`;
     const result = await identifyOnServer({ position, heading, accuracyMetres: 0 }, "dev");
     button.disabled = false;
-    candidateArea.innerHTML = "";
-    const screen = document.createElement("div");
-    if (result.requestId) candidateArea.append(requestIdLine(result.requestId));
-    candidateArea.append(screen);
-    if ("error" in result) {
-      const notice = document.createElement("p");
-      notice.className = "notice";
-      notice.textContent = `Couldn't fetch map data: ${result.error}`;
-      screen.append(notice);
-      return;
-    }
-    candidateScreen = showCandidateScreen(screen, result.identification, (candidate) => {
-      logChoice(result.requestId, candidate);
-      chosenReading.textContent = `Chose Candidate ${candidate.number} (${candidate.footprint.id}): ${candidate.location.geoUri}`;
-      // The same hand-off as on the phone; a desktop browser may ask which app should open it.
-      window.location.href = candidate.location.geoUri;
+    candidateScreen = showResultScreen(candidateArea, result, {
+      onChoose: (candidate) => {
+        chosenReading.textContent = `Chose Candidate ${candidate.number} (${candidate.footprint.id}): ${candidate.location.geoUri}`;
+      },
     });
   });
 

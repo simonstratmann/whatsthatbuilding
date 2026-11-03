@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import savedResponse from "./fixtures/overpass-buildings.json" with { type: "json" };
-import { overpassFootprintSource } from "./overpass.ts";
+import { overpassFootprintSource, recordingOverpassFetch } from "./overpass.ts";
 
 /** Matches a coordinate to within about 1 cm. */
 function closeTo(degrees: number) {
@@ -116,5 +116,44 @@ describe("overpassFootprintSource", () => {
     await expect(
       overpassFootprintSource({ url: "https://overpass.example.org/api/interpreter", fetchFn }).footprintsAround({ lat: 52.52, lon: 13.405 }, 500),
     ).rejects.toThrow(/429/);
+  });
+});
+
+describe("recordingOverpassFetch", () => {
+  it("keeps each Overpass query with its answer, for the request log", async () => {
+    const { fetchFn } = respondingWith({ elements: [] });
+    const recorder = recordingOverpassFetch(fetchFn);
+
+    await overpassFootprintSource({ url: "https://overpass.example.org/api/interpreter", fetchFn: recorder.fetch }).footprintsAround(
+      { lat: 52.52, lon: 13.405 },
+      500,
+    );
+
+    expect(recorder.exchanges).toEqual([
+      {
+        url: "https://overpass.example.org/api/interpreter",
+        query: expect.stringContaining("around:500,52.52,13.405"),
+        status: 200,
+        durationMs: expect.any(Number),
+        response: { elements: [] },
+      },
+    ]);
+  });
+
+  it("keeps an answer that isn't JSON as text, and a request that got no answer with its error", async () => {
+    let calls = 0;
+    const recorder = recordingOverpassFetch(async () => {
+      if (calls++ === 0) return new Response("<html>Bad Gateway</html>", { status: 502 });
+      throw new TypeError("fetch failed");
+    });
+    const source = overpassFootprintSource({ url: "https://overpass.example.org/api/interpreter", fetchFn: recorder.fetch });
+
+    await expect(source.footprintsAround({ lat: 52.52, lon: 13.405 }, 500)).rejects.toThrow(/502/);
+    await expect(source.footprintsAround({ lat: 52.52, lon: 13.405 }, 500)).rejects.toThrow(/fetch failed/);
+
+    expect(recorder.exchanges).toMatchObject([
+      { status: 502, response: "<html>Bad Gateway</html>" },
+      { status: null, response: null, error: "TypeError: fetch failed" },
+    ]);
   });
 });

@@ -60,6 +60,52 @@ out geom;`;
   };
 }
 
+/** One Overpass call as it went over the wire. */
+export interface OverpassExchange {
+  url: string;
+  /** The Overpass QL query sent. */
+  query: string | null;
+  /** HTTP status, or null when the request never got an answer. */
+  status: number | null;
+  durationMs: number;
+  /** The parsed JSON answer, or its text when it wasn't JSON. */
+  response: unknown;
+  error?: string;
+}
+
+/** A fetch that keeps a copy of each Overpass query and its answer, for the request log. */
+export function recordingOverpassFetch(fetchFn: typeof fetch = fetch): { fetch: typeof fetch; exchanges: OverpassExchange[] } {
+  const exchanges: OverpassExchange[] = [];
+  const recording: typeof fetch = async (input, init) => {
+    const started = performance.now();
+    // overpassFootprintSource sends its query as the form field `data`.
+    const query = init?.body instanceof URLSearchParams ? init.body.get("data") : null;
+    const exchange: OverpassExchange = { url: String(input), query, status: null, durationMs: 0, response: null };
+    exchanges.push(exchange);
+    try {
+      const response = await fetchFn(input, init);
+      const text = await response.clone().text();
+      exchange.status = response.status;
+      exchange.response = parseIfJson(text);
+      return response;
+    } catch (error) {
+      exchange.error = String(error);
+      throw error;
+    } finally {
+      exchange.durationMs = Math.round(performance.now() - started);
+    }
+  };
+  return { fetch: recording, exchanges };
+}
+
+function parseIfJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
 function toFootprint(element: OverpassElement): Footprint[] {
   const rings =
     element.type === "way"

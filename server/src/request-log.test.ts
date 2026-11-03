@@ -25,7 +25,7 @@ const record: RequestRecord = {
       footprintId: "way/1001",
       label: "Opernhaus",
       distanceMetres: 24.4,
-      location: { lat: 52.3747, lon: 9.7399 },
+      position: { lat: 52.3747, lon: 9.7399 },
       geoUri: "geo:52.3747,9.7399?q=52.3747,9.7399(Opernhaus)",
     },
   ],

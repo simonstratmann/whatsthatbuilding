@@ -1,6 +1,6 @@
 import L from "leaflet";
 import type { Candidate, Identification } from "@whatisthatbuilding/shared";
-import { addOsmTiles, toLeaflet } from "./leaflet-map";
+import { addOsmTiles, toLeaflet } from "./leaflet-map.ts";
 
 const FIT_PADDING_PIXELS = 24;
 

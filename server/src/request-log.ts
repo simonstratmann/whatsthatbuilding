@@ -1,19 +1,7 @@
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Choice, IdentifyRequest, LatLng, OrientationReading, Snapshot } from "@whatisthatbuilding/shared";
-
-/** One Overpass call as it went over the wire. */
-export interface OverpassExchange {
-  url: string;
-  /** The Overpass QL query sent. */
-  query: string | null;
-  /** HTTP status, or null when the request never got an answer. */
-  status: number | null;
-  durationMs: number;
-  /** The parsed JSON answer, or its text when it wasn't JSON. */
-  response: unknown;
-  error?: string;
-}
+import type { Choice, Identification, IdentifyRequest, LatLng, OrientationReading, Snapshot } from "@whatisthatbuilding/shared";
+import type { OverpassExchange } from "./overpass.ts";
 
 /**
  * Everything one Snapshot led to, kept so a misbehaving test on the phone can be told
@@ -33,7 +21,7 @@ export interface RequestRecord {
     footprintId: string;
     label?: string;
     distanceMetres: number;
-    location: LatLng;
+    position: LatLng;
     geoUri: string;
   }[];
   error?: string;
@@ -56,6 +44,48 @@ export function newRequestId(now = new Date()): string {
   const time = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
   const suffix = Math.random().toString(36).slice(2, 6).padEnd(4, "0");
   return `${date}-${time}-${suffix}`;
+}
+
+/**
+ * The record of one request to `POST /api/identify` as it starts; `overpass` fills up while
+ * it runs, and finishRecord adds what came of it.
+ */
+export function startRecord(
+  id: string,
+  { snapshot, mode, orientation }: IdentifyRequest,
+  overpass: OverpassExchange[],
+  startedAt = new Date(),
+): RequestRecord {
+  return {
+    id,
+    startedAt: startedAt.toISOString(),
+    mode,
+    snapshot,
+    ...(orientation ? { orientation } : {}),
+    overpass,
+    durationMs: 0,
+  };
+}
+
+/** Adds the Candidates, or the error, and how long the request took. */
+export function finishRecord(
+  record: RequestRecord,
+  outcome: { identification: Identification } | { error: string },
+  finishedAt = new Date(),
+): void {
+  if ("error" in outcome) {
+    record.error = outcome.error;
+  } else {
+    record.candidates = outcome.identification.candidates.map(({ number, footprint, distanceMetres, location }) => ({
+      number,
+      footprintId: footprint.id,
+      ...(location.label ? { label: location.label } : {}),
+      distanceMetres,
+      position: location.position,
+      geoUri: location.geoUri,
+    }));
+  }
+  record.durationMs = finishedAt.getTime() - Date.parse(record.startedAt);
 }
 
 /**
@@ -104,36 +134,4 @@ function summary({ id, startedAt, mode, snapshot, overpass, candidates, error }:
   ]
     .filter(Boolean)
     .join(" ");
-}
-
-/** A fetch that keeps a copy of each Overpass query and its answer, for the request log. */
-export function recordingFetch(fetchFn: typeof fetch = fetch): { fetch: typeof fetch; exchanges: OverpassExchange[] } {
-  const exchanges: OverpassExchange[] = [];
-  const recording: typeof fetch = async (input, init) => {
-    const started = performance.now();
-    const query = init?.body instanceof URLSearchParams ? init.body.get("data") : null;
-    const exchange: OverpassExchange = { url: String(input), query, status: null, durationMs: 0, response: null };
-    exchanges.push(exchange);
-    try {
-      const response = await fetchFn(input, init);
-      const text = await response.clone().text();
-      exchange.status = response.status;
-      exchange.response = parseIfJson(text);
-      return response;
-    } catch (error) {
-      exchange.error = String(error);
-      throw error;
-    } finally {
-      exchange.durationMs = Math.round(performance.now() - started);
-    }
-  };
-  return { fetch: recording, exchanges };
-}
-
-function parseIfJson(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
 }

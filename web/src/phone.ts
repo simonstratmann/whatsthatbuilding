@@ -1,7 +1,6 @@
-import { showCandidateScreen } from "./candidate-screen";
-import { identifyOnServer, logChoice } from "./identify-client";
-import { requestIdLine } from "./request-id";
-import { showViewfinder } from "./viewfinder";
+import { identifyOnServer } from "./identify-client.ts";
+import { showResultScreen } from "./result-screen.ts";
+import { showViewfinder } from "./viewfinder.ts";
 
 /**
  * The app on the phone: explain the permissions once, then the viewfinder; a Snapshot
@@ -36,22 +35,7 @@ function startViewfinder(app: HTMLElement): void {
     viewfinder.destroy();
     app.innerHTML = `<p class="notice">Looking for buildings…</p>`;
     const result = await identifyOnServer(snapshot, "phone", orientation);
-    app.innerHTML = "";
-    if (result.requestId) app.append(requestIdLine(result.requestId));
-    if ("error" in result) {
-      const notice = document.createElement("p");
-      notice.className = "notice";
-      notice.textContent = `Couldn't fetch map data: ${result.error}`;
-      app.append(notice);
-      return;
-    }
-    const screen = document.createElement("div");
-    screen.className = "candidate-screen";
-    app.append(screen);
-    showCandidateScreen(screen, result.identification, (candidate) => {
-      logChoice(result.requestId, candidate);
-      window.location.href = candidate.location.geoUri;
-    });
+    showResultScreen(app, result, { className: "candidate-screen" });
   });
 }
 

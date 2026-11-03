@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cameraHeading } from "./sensors";
+import { cameraHeading } from "./sensors.ts";
 
 // Readings follow the DeviceOrientation spec: alpha turns the phone anticlockwise seen from above,
 // beta tilts its top edge up, gamma tilts its right edge down. Flat on its back with its top edge

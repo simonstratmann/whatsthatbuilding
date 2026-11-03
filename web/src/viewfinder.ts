@@ -1,4 +1,4 @@
-import { SensorError, startSensors, type SensorProblem, type TakenSnapshot } from "./sensors";
+import { SensorError, startSensors, type SensorProblem, type TakenSnapshot } from "./sensors.ts";
 
 export interface Viewfinder {
   /** Stops the camera and sensors; call before discarding the container. */

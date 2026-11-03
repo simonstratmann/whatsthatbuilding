@@ -10,7 +10,8 @@ import {
 } from "@whatisthatbuilding/shared";
 import { Hono } from "hono";
 import { identify, type FootprintSource } from "./identification.ts";
-import { newRequestId, recordingFetch, writeRequestLog, type RequestRecord } from "./request-log.ts";
+import { recordingOverpassFetch } from "./overpass.ts";
+import { finishRecord, newRequestId, startRecord, writeRequestLog } from "./request-log.ts";
 
 export interface AppOptions {
   /**
@@ -33,36 +34,17 @@ export function createApp({ footprintSource, requestLogDir, webRoot }: AppOption
     if (!request) return c.json({ error: "Expected a Snapshot" }, 400);
 
     const requestId = newRequestId();
-    const startedAt = new Date();
-    const recorder = recordingFetch();
-    const record: RequestRecord = {
-      id: requestId,
-      startedAt: startedAt.toISOString(),
-      mode: request.mode,
-      snapshot: request.snapshot,
-      ...(request.orientation ? { orientation: request.orientation } : {}),
-      overpass: recorder.exchanges,
-      durationMs: 0,
-    };
+    const recorder = recordingOverpassFetch();
+    const record = startRecord(requestId, request, recorder.exchanges);
 
     let response: IdentifyResponse;
     try {
-      const identification = await identify(request.snapshot, footprintSource(recorder.fetch));
-      record.candidates = identification.candidates.map((candidate) => ({
-        number: candidate.number,
-        footprintId: candidate.footprint.id,
-        ...(candidate.location.label ? { label: candidate.location.label } : {}),
-        distanceMetres: candidate.distanceMetres,
-        location: candidate.location.position,
-        geoUri: candidate.location.geoUri,
-      }));
-      response = { requestId, identification };
+      response = { requestId, identification: await identify(request.snapshot, footprintSource(recorder.fetch)) };
     } catch (error) {
       console.error(`[identify] request ${requestId} failed:`, error);
-      record.error = String(error);
-      response = { requestId, error: record.error };
+      response = { requestId, error: String(error) };
     }
-    record.durationMs = Date.now() - startedAt.getTime();
+    finishRecord(record, response);
     if (requestLogDir) await logSafely(writeRequestLog(requestLogDir, { kind: "request", record }));
     return c.json(response, "error" in response ? 502 : 200);
   });
