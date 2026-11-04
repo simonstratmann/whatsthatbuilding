@@ -65,6 +65,8 @@ html, body, #app { margin: 0; height: 100%; font-family: system-ui, sans-serif; 
 .sight-view .line-of-sight, .sight-view .sight-cone-edge { stroke: #d33; stroke-opacity: 0.5; stroke-width: 1.5; vector-effect: non-scaling-stroke; pointer-events: none; }
 .sight-view .line-of-sight { stroke-dasharray: 6 4; }
 .sight-view .sight-cone-edge { stroke-opacity: 0.3; }
+.sight-view .aim { pointer-events: none; }
+.sight-view .aim circle, .sight-view .aim line { fill: none; stroke: #d33; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
 .sight-view .number { cursor: pointer; }
 .sight-view .number circle { fill: #fff; stroke: var(--c); stroke-width: 4; vector-effect: non-scaling-stroke; }
 .sight-view .number text { font: 700 40px system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; fill: #111; }

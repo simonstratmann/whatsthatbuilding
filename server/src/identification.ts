@@ -14,7 +14,7 @@ import {
   type Point,
   type Snapshot,
 } from "@whatisthatbuilding/shared";
-import { blockShell, localShell, type StoredShell } from "./building-shells.ts";
+import { blockShell, DEFAULT_HEIGHT_METRES, localShell, type StoredShell } from "./building-shells.ts";
 import { buildingTypeOf } from "./building-types.ts";
 
 export interface FootprintSource {
@@ -75,6 +75,7 @@ export async function identify(
     lineOfSight: {
       from: snapshot.position,
       to: destination(snapshot.position, snapshot.heading, SIGHT_CONE_RANGE_METRES),
+      ...(snapshot.pitch === undefined ? {} : { pitch: snapshot.pitch }),
     },
   };
   // All at once: a source that first has to download building data can fetch it all in one go,
@@ -107,7 +108,9 @@ export async function identify(
   const inCone = inView.filter(({ rings }) => rings.some((ring) => cone.overlaps(ring)));
   const isHidden = hiddenTest(inCone, snapshot.heading);
 
-  const ranked = rankCandidates(inCone.map((found) => ({ ...found, hidden: isHidden(found) })));
+  const withHidden = inCone.map((found) => ({ ...found, hidden: isHidden(found) }));
+  const aimed = snapshot.pitch === undefined ? undefined : aimedAt(withHidden, snapshot.heading, snapshot.pitch);
+  const ranked = rankCandidates(withHidden, aimed);
   const isCandidate = new Set(ranked.map(({ footprint }) => footprint.id));
   // In a city centre most buildings in the Sight View hide behind nearer ones; drawing them
   // would change nothing but the size of the response.
@@ -142,12 +145,18 @@ export async function identify(
 }
 
 /**
- * The Candidates, in rank order, at most MAX_CANDIDATES: those the user can see, then Hidden
+ * The Candidates, in rank order, at most `places`: those the user can see, then Hidden
  * Candidates, then buildings lower than LOW_METRES; nearest first within each. The app is for
  * buildings a bit farther off, so the tallest ones the user can see always make the list, even
- * behind more than MAX_CANDIDATES nearer ones; they keep their place in the order.
+ * behind more than `places` nearer ones; they keep their place in the order. The building
+ * the phone was aimed at, when the Snapshot says how far up, comes first.
  */
-function rankCandidates<C extends FootprintInCone & { hidden: boolean }>(inCone: C[]): C[] {
+function rankCandidates<C extends FootprintInCone & { hidden: boolean }>(
+  inCone: C[],
+  aimed?: C,
+  places = MAX_CANDIDATES,
+): C[] {
+  if (aimed) return [aimed, ...rankCandidates(inCone.filter((c) => c !== aimed), undefined, places - 1)];
   const isLow = ({ footprint }: C) => footprint.heightMetres !== undefined && footprint.heightMetres < LOW_METRES;
   const group = (c: C) => (isLow(c) ? 2 : c.hidden ? 1 : 0);
   const ordered = [...inCone].sort(
@@ -156,9 +165,32 @@ function rankCandidates<C extends FootprintInCone & { hidden: boolean }>(inCone:
   const tallest = ordered
     .filter((c) => group(c) === 0 && c.footprint.heightMetres !== undefined)
     .sort((a, b) => b.footprint.heightMetres! - a.footprint.heightMetres!)
-    .slice(0, PLACES_FOR_THE_TALLEST);
-  const others = ordered.filter((c) => !tallest.includes(c)).slice(0, MAX_CANDIDATES - tallest.length);
+    .slice(0, Math.min(PLACES_FOR_THE_TALLEST, places));
+  const others = ordered.filter((c) => !tallest.includes(c)).slice(0, places - tallest.length);
   return ordered.filter((c) => tallest.includes(c) || others.includes(c));
+}
+
+/** How far either side of the heading to look for the building aimed at: the compass may be off. */
+const AIM_SPREAD_DEGREES = [0, 1, -1, 2, -2, 3, -3];
+
+/**
+ * The building the camera was aimed at: the first one a ray from the user's eye, `pitch` degrees
+ * above the horizon, runs into, along the heading or, if it meets none there, along the nearest
+ * bearing a few degrees either side that does. A building of unknown height is taken to be as
+ * high as its block. None when the ray passes above them all.
+ */
+function aimedAt<C extends FootprintInCone>(inCone: C[], heading: number, pitch: number): C | undefined {
+  const rise = Math.tan((pitch * Math.PI) / 180);
+  for (const offset of AIM_SPREAD_DEGREES) {
+    const direction = pointAt(heading + offset, 1);
+    const hit = inCone
+      .map((found) => ({ found, reach: entryAlong(found.rings, direction) }))
+      .filter(({ reach }) => reach < Infinity)
+      .sort((a, b) => a.reach - b.reach)
+      .find(({ found, reach }) => (found.footprint.heightMetres ?? DEFAULT_HEIGHT_METRES) - EYE_HEIGHT_METRES >= rise * reach);
+    if (hit) return hit.found;
+  }
+  return undefined;
 }
 
 /** What the user should know about a Snapshot inside the Coverage Area, in the order to say it. */

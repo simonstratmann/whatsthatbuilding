@@ -141,6 +141,7 @@ function asIdentifyRequest(body: unknown): IdentifyRequest | undefined {
     !isNumber(snapshot.position?.lon) ||
     !isNumber(snapshot.heading) ||
     !isNumber(snapshot.accuracyMetres) ||
+    (snapshot.pitch !== undefined && !(isNumber(snapshot.pitch) && Math.abs(snapshot.pitch) <= 90)) ||
     !COMPASS_CALIBRATIONS.includes(compassCalibration) ||
     !(SNAPSHOT_MODES as readonly unknown[]).includes(request.mode)
   ) {

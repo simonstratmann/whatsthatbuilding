@@ -57,6 +57,11 @@ function identification(heading: number, ...candidates: Candidate[]): Identifica
   return { candidates, surroundings: [], warnings: [], sightCone: [USER], lineOfSight: { from: USER, to: ahead } };
 }
 
+/** The same, aimed `pitch` degrees above the horizon. */
+function aimed(pitch: number, base: Identification): Identification {
+  return { ...base, lineOfSight: { ...base.lineOfSight, pitch } };
+}
+
 function surrounding(footprintId: string, shell: BuildingShell): SurroundingsBuilding {
   return { footprintId, shell };
 }
@@ -293,6 +298,20 @@ describe("sightView", () => {
       expect(a.anchorY).toBeCloseTo(top, 6);
       expect(a.y).toBeLessThan(a.anchorY);
     }
+  });
+
+  it("marks where the phone was aimed: in the middle, as high up as it was tilted", () => {
+    // A building straight ahead whose near wall's top is exactly 10° up from the eye.
+    const height = 1.6 + 95 * Math.tan(degrees(10));
+    const view = sightView(aimed(10, identification(0, candidate(1, box(0, 100, { height })))));
+
+    const top = Math.min(...polygonsOf(view, 1).flatMap((p) => p.points.map(([, y]) => y)));
+    expect(view.aim?.x).toBeCloseTo(view.width / 2, 6);
+    expect(view.aim?.y).toBeCloseTo(top, 6);
+  });
+
+  it("marks no aim when the Snapshot doesn't say how far up the phone was tilted", () => {
+    expect(sightView(identification(0, candidate(1, box(0, 100)))).aim).toBeUndefined();
   });
 
   it("gives the Line of Sight in the middle and the Sight Cone's edges at ±15°", () => {

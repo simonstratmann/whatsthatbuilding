@@ -18,6 +18,12 @@ export interface Snapshot {
    * it; the few degrees of declination fall well inside the Sight Cone.
    */
   heading: number;
+  /**
+   * How far above the horizon the camera pointed, in degrees (negative below it): tilting the
+   * phone up at a tower says the user means the tower, not the house in front of it. Absent
+   * when unknown, as at a desk in dev mode.
+   */
+  pitch?: number;
   /** How far off the position may be, in metres, as the GPS reports it. */
   accuracyMetres: number;
   compassCalibration: CompassCalibration;
@@ -152,8 +158,11 @@ export interface Identification {
   warnings: IdentificationWarning[];
   /** The Sight Cone that was searched: the user's position, then the far arc from left to right. */
   sightCone: LatLng[];
-  /** From the user along their heading to the far edge of the Sight Cone. */
-  lineOfSight: { from: LatLng; to: LatLng };
+  /**
+   * From the user along their heading to the far edge of the Sight Cone, and how far above the
+   * horizon they aimed, when the Snapshot says.
+   */
+  lineOfSight: { from: LatLng; to: LatLng; pitch?: number };
 }
 
 /** The user's choice of a Candidate, added to its request's log entry. */

@@ -26,6 +26,17 @@ export function cameraHeading({ alpha, beta, gamma }: OrientationReading): numbe
   return ((Math.atan2(east, north) * 180) / Math.PI + 360) % 360;
 }
 
+/**
+ * How far above the horizon the rear camera points, in degrees (negative below it), or null
+ * when the reading is incomplete. Like the heading, it follows the device's −z axis.
+ */
+export function cameraPitch({ beta, gamma }: OrientationReading): number | null {
+  if (beta === null || gamma === null) return null;
+  const [b, g] = [beta, gamma].map((degrees) => (degrees * Math.PI) / 180) as [number, number];
+  // The up component of the device's −z axis in the Earth frame (see cameraHeading).
+  return (Math.asin(Math.max(-1, Math.min(1, -Math.cos(b) * Math.cos(g)))) * 180) / Math.PI;
+}
+
 /** Why the sensors can't give a Snapshot; each names what the user can do about it. */
 export type SensorProblem =
   | "position-denied"
@@ -120,12 +131,14 @@ export function startSensors(onProblem: (problem: SensorProblem) => void): Senso
       if (!reading || reading.alpha === null) throw new SensorError("orientation-unavailable");
       const heading = cameraHeading(reading);
       if (heading === null) throw new SensorError("phone-flat");
+      const pitch = cameraPitch(reading);
 
       const position = await nextFix();
       return {
         snapshot: {
           position: { lat: position.coords.latitude, lon: position.coords.longitude },
           heading,
+          ...(pitch === null ? {} : { pitch }),
           accuracyMetres: position.coords.accuracy,
           // Chrome on Android, the only browser with absolute orientation events, never says
           // whether its compass is calibrated.

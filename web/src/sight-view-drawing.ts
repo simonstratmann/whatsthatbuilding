@@ -73,6 +73,24 @@ function drawInto(svg: SVGSVGElement, view: SightView): void {
     svg.append(element("line", { x1: String(x), x2: String(x), y1: "0", y2: String(view.height), class: className }));
   }
 
+  if (view.aim) {
+    // Where the phone was aimed, drawn as the viewfinder's crosshair.
+    const { x, y } = view.aim;
+    const aim = element("g", { class: "aim" });
+    aim.append(element("circle", { cx: x.toFixed(1), cy: y.toFixed(1), r: "16" }));
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      aim.append(
+        element("line", {
+          x1: (x + dx * 10).toFixed(1),
+          y1: (y + dy * 10).toFixed(1),
+          x2: (x + dx * 28).toFixed(1),
+          y2: (y + dy * 28).toFixed(1),
+        }),
+      );
+    }
+    svg.append(aim);
+  }
+
   for (const { number, x, y, anchorX, anchorY, chosen } of view.numbers) {
     const label = element("g", {
       class: `number ${slotClass(number)}${chosen ? " chosen" : ""}`,

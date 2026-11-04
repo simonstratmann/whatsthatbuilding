@@ -38,7 +38,7 @@ export function localShell(shell: StoredShell, toLocal: (p: LatLng) => Point): B
 }
 
 /** For a Footprint whose height the building model doesn't give: about two storeys and a roof. */
-const DEFAULT_HEIGHT_METRES = 10;
+export const DEFAULT_HEIGHT_METRES = 10;
 
 /**
  * A building's Footprint raised to its height, for one the building model has no Shell for:

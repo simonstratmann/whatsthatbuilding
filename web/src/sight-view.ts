@@ -50,6 +50,8 @@ export interface SightView {
   /** In rank order; a Candidate with nothing in view has none. */
   numbers: SightNumber[];
   lineOfSightX: number;
+  /** Where the phone was aimed, when the Snapshot says how far up: on the Line of Sight. */
+  aim?: { x: number; y: number };
   /** The left and right edges of the Sight Cone. */
   sightConeEdgesX: [number, number];
 }
@@ -171,6 +173,9 @@ export function sightView({ candidates, surroundings, lineOfSight }: Identificat
     polygons,
     numbers,
     lineOfSightX: WIDTH / 2,
+    ...(lineOfSight.pitch === undefined
+      ? {}
+      : { aim: { x: WIDTH / 2, y: top - Math.tan(radians(lineOfSight.pitch)) * SCALE } }),
     sightConeEdgesX: [WIDTH / 2 - edgeX, WIDTH / 2 + edgeX],
   };
 }

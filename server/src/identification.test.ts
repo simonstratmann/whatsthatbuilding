@@ -38,8 +38,14 @@ function namesOf(names: Record<string, string>): LabelSource {
   return { namesAround: async () => ({ nameOf: (footprint) => names[footprint.id] }) };
 }
 
-function facing(heading: number): Snapshot {
-  return { position: ORIGIN, heading, accuracyMetres: 5, compassCalibration: "calibrated" };
+function facing(heading: number, pitch?: number): Snapshot {
+  return {
+    position: ORIGIN,
+    heading,
+    ...(pitch === undefined ? {} : { pitch }),
+    accuracyMetres: 5,
+    compassCalibration: "calibrated",
+  };
 }
 
 describe("identify", () => {
@@ -235,6 +241,20 @@ describe("identify", () => {
     expect(candidates).toHaveLength(8);
     expect(candidates.map((c) => c.footprint.id)).toContain("church");
     expect(candidates.at(-1)?.footprint.id).toBe("church");
+  });
+
+  it("still keeps a place for the tallest building in view when another is aimed at", async () => {
+    // As above, but the phone aims level at the middle house.
+    const terrace = [-4, -3, -2, -1, 0, 1, 2, 3, 4].map((n) =>
+      building(`house ${n}`, n * 4 - 2, 60 + Math.abs(n) * 2, n * 4 + 2, 70 + Math.abs(n) * 2, { heightMetres: 12 }),
+    );
+    const church = building("church", -5, 300, 5, 320, { heightMetres: 100 });
+
+    const { candidates } = await identify(facing(0, 0), sourceOf(church, ...terrace));
+
+    expect(candidates[0]?.footprint.id).toBe("house 0");
+    expect(candidates).toHaveLength(8);
+    expect(candidates.map((c) => c.footprint.id)).toContain("church");
   });
 
   it("keeps no place for a tall building the user can't see", async () => {
@@ -665,6 +685,42 @@ describe("identify", () => {
     const { surroundings } = await identify(facing(0), source);
 
     expect(surroundings).toEqual([]);
+  });
+
+  describe("with the phone's tilt", () => {
+    // A shop in front, its top 12° up; a tower behind it, its top 21° up; a house beside the
+    // tower, not quite in line, its top 4° up.
+    const shop = building("shop", -30, 40, 30, 50, { heightMetres: 10 });
+    const house = building("house", 20, 100, 30, 110, { heightMetres: 8 });
+    const tower = building("tower", -15, 250, 15, 280, { heightMetres: 100 });
+    const source = sourceOf(shop, house, tower);
+
+    it("puts the building the phone was tilted up at first, over the one in front of it", async () => {
+      const { candidates, lineOfSight } = await identify(facing(0, 15), source);
+
+      expect(candidates.map((c) => c.footprint.id)).toEqual(["tower", "shop", "house"]);
+      expect(lineOfSight.pitch).toBe(15);
+    });
+
+    it("puts the building in front first when the phone is held level", async () => {
+      const { candidates } = await identify(facing(0, 0), source);
+
+      expect(candidates[0]?.footprint.id).toBe("shop");
+    });
+
+    it("finds the building aimed at a few degrees off the heading, as the compass may be", async () => {
+      // The tower spans bearings 356.6°–3.4° at 250 m; facing 6°, the heading passes it by.
+      const { candidates } = await identify(facing(6, 15), source);
+
+      expect(candidates[0]?.footprint.id).toBe("tower");
+    });
+
+    it("puts no building first when the phone aims above them all", async () => {
+      const { candidates, lineOfSight } = await identify(facing(0, 40), source);
+
+      expect(candidates.map((c) => c.footprint.id)).toEqual(["shop", "tower", "house"]);
+      expect(lineOfSight.pitch).toBe(40);
+    });
   });
 
   it("describes the Sight Cone it searched: from the user out to 500 m, ±15° around the heading", async () => {

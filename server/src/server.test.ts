@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ChoiceReport, Footprint, IdentifyRequest, IdentifyResponse, LatLng } from "@whatisthatbuilding/shared";
+import type { ChoiceReport, Footprint, Identification, IdentifyRequest, IdentifyResponse, LatLng } from "@whatisthatbuilding/shared";
 import type { DopProxy } from "./dop-proxy.ts";
 import type { FootprintSource, LabelSource } from "./identification.ts";
 import { startServer, type RunningServer } from "./server.ts";
@@ -208,6 +208,20 @@ describe("POST /api/identify", () => {
 
     expect(response.status).toBe(400);
     expect(badCalibration.status).toBe(400);
+  });
+
+  it("takes the phone's tilt with a Snapshot, and refuses one that can't be", async () => {
+    const url = await start(sourceOf(TOWN_HALL));
+    const tilted = (pitch: unknown) => ({ ...facingNorth, snapshot: { ...facingNorth.snapshot, pitch } });
+
+    const up = await post(`${url}/api/identify`, tilted(12.5));
+    const overhead = await post(`${url}/api/identify`, tilted(95));
+    const word = await post(`${url}/api/identify`, tilted("up"));
+
+    expect(up.status).toBe(200);
+    expect(((await up.json()) as { identification: Identification }).identification.lineOfSight.pitch).toBe(12.5);
+    expect(overhead.status).toBe(400);
+    expect(word.status).toBe(400);
   });
 
   it("takes a Snapshot from a demo link, and refuses an unknown mode", async () => {

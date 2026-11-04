@@ -11,7 +11,7 @@ The fixed marker in the camera view that shows which building the user means.
 _Avoid_: Reticle, target
 
 **Snapshot**:
-The moment the user presses the shutter with the Crosshair on a building, recording their position and the direction they are facing.
+The moment the user presses the shutter with the Crosshair on a building, recording their position, the direction they are facing and how far up they tilt the phone. The tilt says which building on the Line of Sight they mean: the house in front, or the tower above it; the building it points at ranks first.
 _Avoid_: Picture, image, capture
 
 **Line of Sight**:
