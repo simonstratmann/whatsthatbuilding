@@ -111,7 +111,7 @@ describe("POST /api/identify", () => {
   });
 
   it("answers a Snapshot outside the Coverage Area with its warning and no Candidates", async () => {
-    const url = await start({ covers: async () => false, footprintsAround: async () => [TOWN_HALL], shellsOf: async () => new Map() });
+    const url = await start({ ...sourceOf(TOWN_HALL), covers: async () => false });
 
     const body = (await (await post(`${url}/api/identify`, facingNorth)).json()) as IdentifyResponse;
 
@@ -121,11 +121,11 @@ describe("POST /api/identify", () => {
   it("logs a failing Footprint source and answers with the error", async () => {
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     const url = await start({
+      ...sourceOf(),
       covers: async () => true,
       footprintsAround: async () => {
         throw new Error("connect ECONNREFUSED 127.0.0.1:5432");
       },
-      shellsOf: async () => new Map(),
     });
 
     const response = await post(`${url}/api/identify`, facingNorth);

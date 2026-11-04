@@ -102,12 +102,10 @@ export function parseLod2Tile(gml: string): Lod2Tile {
         if (parent !== "gml:LinearRing" || open.at(-2) !== "gml:exterior") break;
         const kind = surfaceKind(open);
         if (!kind) break;
-        const coordinates = numbers(value);
-        if (kind === "ground") building.rings.push(withoutClosingPoint(positions(coordinates, srsDimension)));
-        if (srsDimension === 3) {
-          const ring = withoutClosingPoint3d(points3d(coordinates));
-          if (ring.length >= 3) building.shell.push({ kind, ring });
-        }
+        const ring = withoutClosingPoint(utm32Points(numbers(value), srsDimension));
+        if (kind === "ground") building.rings.push(ring.map(([east, north]) => toLatLng(east, north)));
+        // Without elevations there is no Shell to draw.
+        if (srsDimension === 3 && ring.length >= 3) building.shell.push({ kind, ring });
         break;
       }
       case "bldg:measuredHeight":
@@ -196,33 +194,22 @@ function numbers(value: string): number[] {
   return value.split(/\s+/).filter(Boolean).map(Number);
 }
 
-function positions(coordinates: number[], dimension: number): LatLng[] {
-  const result: LatLng[] = [];
+/** The coordinates as points; in 2D, every elevation is 0. */
+function utm32Points(coordinates: number[], dimension: number): Utm32Point[] {
+  const result: Utm32Point[] = [];
   for (let i = 0; i + 1 < coordinates.length; i += dimension) {
-    result.push(toLatLng(coordinates[i]!, coordinates[i + 1]!));
+    result.push([coordinates[i]!, coordinates[i + 1]!, dimension === 3 ? (coordinates[i + 2] ?? 0) : 0]);
   }
   return result;
-}
-
-function points3d(coordinates: number[]): Utm32Point[] {
-  const result: Utm32Point[] = [];
-  for (let i = 0; i + 2 < coordinates.length; i += 3) result.push([coordinates[i]!, coordinates[i + 1]!, coordinates[i + 2]!]);
-  return result;
-}
-
-function withoutClosingPoint3d(ring: Utm32Point[]): Utm32Point[] {
-  const first = ring[0];
-  const last = ring.at(-1);
-  const closes = ring.length > 1 && first && last && first.every((value, i) => value === last[i]);
-  return closes ? ring.slice(0, -1) : ring;
 }
 
 function toLatLng(east: number, north: number): LatLng {
   return fromUtm32({ east, north });
 }
 
-function withoutClosingPoint(ring: LatLng[]): LatLng[] {
+function withoutClosingPoint(ring: Utm32Point[]): Utm32Point[] {
   const first = ring[0];
   const last = ring.at(-1);
-  return ring.length > 1 && first && last && first.lat === last.lat && first.lon === last.lon ? ring.slice(0, -1) : ring;
+  const closes = ring.length > 1 && first && last && first.every((value, i) => value === last[i]);
+  return closes ? ring.slice(0, -1) : ring;
 }

@@ -28,7 +28,6 @@ export interface FootprintSource {
   shellsOf(ids: string[]): Promise<Map<string, StoredShell>>;
 }
 
-
 /** Where building names come from: OpenStreetMap, or a fake in tests. */
 export interface LabelSource {
   /** The names known within `radiusMetres` of the centre, ready to be matched to Footprints there. */

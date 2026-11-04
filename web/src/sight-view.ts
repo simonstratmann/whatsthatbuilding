@@ -1,5 +1,6 @@
 import {
   bearing,
+  edges,
   type BuildingShell,
   type Identification,
   type ShellPoint,
@@ -9,6 +10,7 @@ import {
 /** A point in the Sight View: x from the left edge, y down from the top, in view units. */
 export type ViewPoint = [x: number, y: number];
 
+/** One surface of a building as drawn in the Sight View, cut to the view. */
 export interface SightPolygon {
   points: ViewPoint[];
   surface: SurfaceKind;
@@ -62,15 +64,21 @@ const TAN_HALF_VIEW = Math.tan(radians(HALF_VIEW_DEGREES));
 const SCALE = WIDTH / 2 / TAN_HALF_VIEW;
 
 /** In the eye's frame, in metres: right of the Line of Sight, along it (depth) and above the eye. */
-interface EyePoint {
+type EyePoint = {
   right: number;
   depth: number;
   up: number;
-}
+};
 
-/** A surface in tangent space (right / depth, up / depth), cut to the view. */
+/** A point in tangent space: right / depth and up / depth, as the eye sees it. */
+type Flat = {
+  x: number;
+  y: number;
+};
+
+/** A surface in tangent space, cut to the view. */
 interface ProjectedSurface {
-  points: { x: number; y: number }[];
+  points: Flat[];
   surface: SurfaceKind;
   /** From the eye to the surface's centre, for ordering surfaces within a building. */
   distance: number;
@@ -102,7 +110,7 @@ export function sightView({ candidates, lineOfSight }: Identification, chosen?: 
   const lowest = all.length > 0 ? Math.min(...all.map((p) => p.y)) : -EMPTY_HEIGHT / SCALE;
   const top = highest * SCALE + HEADROOM;
   const height = Math.min(top - lowest * SCALE, MAX_HEIGHT);
-  const toView = ({ x, y }: { x: number; y: number }): ViewPoint => [WIDTH / 2 + x * SCALE, top - y * SCALE];
+  const toView = ({ x, y }: Flat): ViewPoint => [WIDTH / 2 + x * SCALE, top - y * SCALE];
 
   const polygons: SightPolygon[] = [];
   const numbers: SightNumber[] = [];
@@ -143,12 +151,11 @@ function projectShell(shell: BuildingShell, toEye: (p: ShellPoint) => EyePoint):
   for (const { kind, ring } of shell) {
     if (kind === "ground" || ring.length < 3) continue;
     const inEye = ring.map(toEye);
-    const inFront = clipPolygon(inEye, (p) => p.depth - NEAR_METRES, lerpEye);
-    const flat = inFront.map((p) => ({ x: p.right / p.depth, y: p.up / p.depth }));
+    const inFront = clipPolygon(inEye, (p) => p.depth - NEAR_METRES);
+    const flat = inFront.map((p): Flat => ({ x: p.right / p.depth, y: p.up / p.depth }));
     const inView = clipPolygon(
-      clipPolygon(flat, (p) => TAN_HALF_VIEW - p.x, lerpFlat),
+      clipPolygon(flat, (p) => TAN_HALF_VIEW - p.x),
       (p) => p.x + TAN_HALF_VIEW,
-      lerpFlat,
     );
     if (inView.length < 3) continue;
     projected.push({ points: inView, surface: kind, distance: distanceToCentre(inEye) });
@@ -166,33 +173,28 @@ function distanceToCentre(ring: EyePoint[]): number {
 function groundDistance(shell: BuildingShell): number {
   let nearest = Infinity;
   for (const { ring } of shell) {
-    for (let i = 0; i < ring.length; i++) {
-      const [ax, ay] = ring[i]!;
-      const [bx, by] = ring[(i + 1) % ring.length]!;
-      nearest = Math.min(nearest, distanceToSegment(ax, ay, bx, by));
-    }
+    const onGround = ring.map(([x, y]) => ({ x, y }));
+    for (const [a, b] of edges(onGround)) nearest = Math.min(nearest, distanceToSegment(a, b));
   }
   return nearest;
 }
 
 /** From the user to segment a–b on the ground. */
-function distanceToSegment(ax: number, ay: number, bx: number, by: number): number {
-  const dx = bx - ax;
-  const dy = by - ay;
+function distanceToSegment(a: Flat, b: Flat): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
   const lengthSquared = dx * dx + dy * dy;
-  const t = lengthSquared === 0 ? 0 : Math.min(1, Math.max(0, -(ax * dx + ay * dy) / lengthSquared));
-  return Math.hypot(ax + t * dx, ay + t * dy);
+  const t = lengthSquared === 0 ? 0 : Math.min(1, Math.max(0, -(a.x * dx + a.y * dy) / lengthSquared));
+  return Math.hypot(a.x + t * dx, a.y + t * dy);
 }
 
 /**
  * The part of a polygon where `inside` is at least 0, by Sutherland–Hodgman: `inside` must be
- * linear, so the cut runs straight. `lerp` gives the point a fraction of the way from a to b.
+ * linear, so the cut runs straight.
  */
-function clipPolygon<P>(polygon: P[], inside: (p: P) => number, lerp: (a: P, b: P, t: number) => P): P[] {
+function clipPolygon<P extends Record<string, number>>(polygon: P[], inside: (p: P) => number): P[] {
   const result: P[] = [];
-  for (let i = 0; i < polygon.length; i++) {
-    const a = polygon[i]!;
-    const b = polygon[(i + 1) % polygon.length]!;
+  for (const [a, b] of edges(polygon)) {
     const sideA = inside(a);
     const sideB = inside(b);
     if (sideA >= 0) result.push(a);
@@ -201,12 +203,11 @@ function clipPolygon<P>(polygon: P[], inside: (p: P) => number, lerp: (a: P, b: 
   return result;
 }
 
-function lerpEye(a: EyePoint, b: EyePoint, t: number): EyePoint {
-  return { right: a.right + t * (b.right - a.right), depth: a.depth + t * (b.depth - a.depth), up: a.up + t * (b.up - a.up) };
-}
-
-function lerpFlat(a: { x: number; y: number }, b: { x: number; y: number }, t: number): { x: number; y: number } {
-  return { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
+/** The point a fraction `t` of the way from a to b, in every coordinate. */
+function lerp<P extends Record<string, number>>(a: P, b: P, t: number): P {
+  const point: Record<string, number> = {};
+  for (const key of Object.keys(a)) point[key] = a[key]! + t * (b[key]! - a[key]!);
+  return point as P;
 }
 
 function radians(degrees: number): number {

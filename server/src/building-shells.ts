@@ -12,6 +12,7 @@ export interface ShellPosition extends LatLng {
   elevation: number;
 }
 
+/** One surface of a stored Shell: a wall, roof or ground, as an outer ring of positions. */
 export interface StoredSurface {
   kind: SurfaceKind;
   /** The outer ring, without its closing point. */

@@ -1,14 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { BuildingShell, Candidate, Identification, LatLng, ShellPoint } from "@whatisthatbuilding/shared";
 import { sightView, type SightView } from "./sight-view.ts";
+import { offsetFrom } from "./test-geo.ts";
 
 // The user stands here in every scenario.
 const USER: LatLng = { lat: 53.55, lon: 10 };
-const METRES_PER_DEGREE_LAT = 111_320;
-const METRES_PER_DEGREE_LON = METRES_PER_DEGREE_LAT * Math.cos((USER.lat * Math.PI) / 180);
 
 function offset(east: number, north: number): LatLng {
-  return { lat: USER.lat + north / METRES_PER_DEGREE_LAT, lon: USER.lon + east / METRES_PER_DEGREE_LON };
+  return offsetFrom(USER, east, north);
 }
 
 const degrees = (d: number) => (d * Math.PI) / 180;

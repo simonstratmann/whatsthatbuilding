@@ -98,6 +98,7 @@ export type SurfaceKind = "wall" | "roof" | "ground";
  */
 export type ShellPoint = [east: number, north: number, up: number];
 
+/** One wall, roof or ground surface of a Building Shell. */
 export interface ShellSurface {
   kind: SurfaceKind;
   /** The surface's outer ring, without repeating its first point; holes are left out. */

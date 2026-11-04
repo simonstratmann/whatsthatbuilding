@@ -4,7 +4,6 @@ import type { Lod2Building, Lod2Surface, Lod2Tile, Utm32Point } from "./lod2-par
 import { lod2Store, type Lod2Store } from "./lod2-store.ts";
 import { ageLod2Tiles, freshDatabase } from "./test-database.ts";
 import { offsetFrom } from "./test-geo.ts";
-import { fromUtm32, toUtm32 } from "./utm32.ts";
 
 // Hamburg Rathausmarkt; the user stands here.
 const ORIGIN: LatLng = { lat: 53.5503, lon: 9.9925 };
@@ -32,17 +31,25 @@ function closeTo(degrees: number) {
   return expect.closeTo(degrees, 7);
 }
 
-/** A point `east` / `north` metres from ORIGIN and `elevation` metres above sea level, in UTM32. */
-function utm(east: number, north: number, elevation: number): Utm32Point {
-  const { east: e, north: n } = toUtm32(offset(east, north));
-  return [e, n, elevation];
-}
-
-/** A 10 m cube's Shell, ground at 20 m above sea level, from (0, 10) to (10, 20). */
+/**
+ * A 10 m cube's Shell in UTM32, ground at 20 m above sea level, near Hamburg's Rödingsmarkt, and
+ * where its corners are in WGS84 as PostGIS's ST_Transform puts them.
+ */
+const SW: Utm32Point = [565500, 5933500, 0];
+const SE: Utm32Point = [565510, 5933500, 0];
+const NE: Utm32Point = [565510, 5933510, 0];
+const NW: Utm32Point = [565500, 5933510, 0];
+const CORNERS_WGS84 = [
+  { lat: 53.546307115, lon: 9.988541278 },
+  { lat: 53.546305868, lon: 9.988692176 },
+  { lat: 53.54639574, lon: 9.98869427 },
+  { lat: 53.546396988, lon: 9.988543372 },
+];
+const up = ([east, north]: Utm32Point, elevation: number): Utm32Point => [east, north, elevation];
 const CUBE: Lod2Surface[] = [
-  { kind: "ground", ring: [utm(0, 10, 20), utm(10, 10, 20), utm(10, 20, 20), utm(0, 20, 20)] },
-  { kind: "roof", ring: [utm(0, 10, 30), utm(10, 10, 30), utm(10, 20, 30), utm(0, 20, 30)] },
-  { kind: "wall", ring: [utm(0, 10, 20), utm(10, 10, 20), utm(10, 10, 30), utm(0, 10, 30)] },
+  { kind: "ground", ring: [SW, SE, NE, NW].map((p) => up(p, 20)) },
+  { kind: "roof", ring: [SW, SE, NE, NW].map((p) => up(p, 30)) },
+  { kind: "wall", ring: [up(SW, 20), up(SE, 20), up(SE, 30), up(SW, 30)] },
 ];
 
 let store: Lod2Store;
@@ -183,14 +190,13 @@ describe("lod2Store", () => {
     expect([...shells.keys()]).toEqual(["cube"]);
     const shell = shells.get("cube")!;
     expect(shell.map((s) => s.kind)).toEqual(["ground", "roof", "wall"]);
-    for (const [i, surface] of CUBE.entries()) {
-      expect(shell[i]!.ring).toEqual(
-        surface.ring.map(([east, north, elevation]) => {
-          const { lat, lon } = fromUtm32({ east, north });
-          return { lat: closeTo(lat), lon: closeTo(lon), elevation: expect.closeTo(elevation, 3) };
-        }),
-      );
-    }
+    const at = (corner: number, elevation: number) => {
+      const { lat, lon } = CORNERS_WGS84[corner]!;
+      return { lat: closeTo(lat), lon: closeTo(lon), elevation: expect.closeTo(elevation, 3) };
+    };
+    expect(shell[0]!.ring).toEqual([0, 1, 2, 3].map((corner) => at(corner, 20)));
+    expect(shell[1]!.ring).toEqual([0, 1, 2, 3].map((corner) => at(corner, 30)));
+    expect(shell[2]!.ring).toEqual([at(0, 20), at(1, 20), at(1, 30), at(0, 30)]);
   });
 
   it("stores tiles at the current schema version, so none needs reading again", async () => {
@@ -213,5 +219,19 @@ describe("lod2Store", () => {
     expect(await store.outdatedTiles(ORIGIN, 500)).toEqual([]);
     expect([...(await store.shellsOf(["cube"])).keys()]).toEqual(["cube"]);
     expect(await store.covers(ORIGIN)).toBe(true);
+  });
+
+  it("fills in the Shell of a building another outdated tile stored first, when replacing a tile", async () => {
+    const onTheBoundary = building("on-the-boundary", -5, 10, 5, 20);
+    await store.replaceTiles(
+      "hamburg",
+      tiles(tile("west", [onTheBoundary], [-1000, -1000, 0, 1000]), tile("east", [onTheBoundary], [0, -1000, 1000, 1000])),
+    );
+    await ageLod2Tiles(databaseUrl);
+
+    await store.replaceTile("hamburg", tile("east", [{ ...onTheBoundary, shell: CUBE }], [0, -1000, 1000, 1000]));
+
+    expect([...(await store.shellsOf(["on-the-boundary"])).keys()]).toEqual(["on-the-boundary"]);
+    expect(await store.footprintsAround(ORIGIN, 500)).toHaveLength(1);
   });
 });

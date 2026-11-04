@@ -241,7 +241,7 @@ describe("tiles stored before Building Shells", () => {
     const upgraded = loader(offline);
 
     const footprints = await upgraded.source.footprintsAround(middleOf(HANNOVER), 500);
-    const shells = await upgraded.source.shellsOf!(footprints.map((f) => f.id));
+    const shells = await upgraded.source.shellsOf(footprints.map((f) => f.id));
 
     expect(shells.get("house-550-5803")?.map((s) => s.kind)).toEqual(["ground"]);
     expect(offline.requested).toEqual([]);
@@ -260,20 +260,25 @@ describe("tiles stored before Building Shells", () => {
 
     await source.footprintsAround(middleOf(IN_HAMBURG), 0);
 
-    expect((await source.shellsOf!(["house-565-5933"])).has("house-565-5933")).toBe(true);
+    expect((await source.shellsOf(["house-565-5933"])).has("house-565-5933")).toBe(true);
     expect(await store.outdatedTiles(middleOf(IN_HAMBURG), 0)).toEqual([]);
   });
 
   it("answers from the old tile, without Shells, when its GML isn't in the file cache", async () => {
-    const { source } = loader(fakeLgln());
-    await source.footprintsAround(middleOf(HANNOVER), 500);
+    const first = loader(fakeLgln()).source;
+    await first.footprintsAround(middleOf(HANNOVER), 500);
     await ageLod2Tiles(databaseUrl);
     await rm(join(cacheDir, "niedersachsen"), { recursive: true });
     const logError = vi.fn();
 
-    const footprints = await loader(fakeLgln(), { logError }).source.footprintsAround(middleOf(HANNOVER), 500);
+    const { source } = loader(fakeLgln(), { logError });
+    const footprints = await source.footprintsAround(middleOf(HANNOVER), 500);
+    const failuresLogged = logError.mock.calls.length;
+    await source.footprintsAround(middleOf(HANNOVER), 500);
 
     expect(footprints.map((f) => f.id)).toEqual(["house-550-5803"]);
+    // The next Snapshot doesn't try those tiles again.
+    expect(logError).toHaveBeenCalledTimes(failuresLogged);
     expect(logError).toHaveBeenCalledWith(expect.stringContaining("LoD2_32_550_5803_1_ni"), expect.any(Error));
   });
 });

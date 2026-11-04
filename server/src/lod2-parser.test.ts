@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
+import type { SurfaceKind } from "@whatisthatbuilding/shared";
 import { parseLod2Tile, type Lod2Building } from "./lod2-parser.ts";
 
 // Three buildings cut from Hamburg's tile LoD2_32_565_5933_1_HH (release 2026-04-28), unchanged.
@@ -98,7 +99,7 @@ function surfaceCounts(shell: Lod2Building["shell"]): Record<string, number> {
   return counts;
 }
 
-function heightsOf(shell: Lod2Building["shell"], kind: string): number[] {
+function heightsOf(shell: Lod2Building["shell"], kind: SurfaceKind): number[] {
   return (shell ?? []).filter((s) => s.kind === kind).flatMap((s) => s.ring.map(([, , height]) => height));
 }
 

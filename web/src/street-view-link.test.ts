@@ -1,14 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { LatLng } from "@whatisthatbuilding/shared";
 import { streetViewUrl } from "./street-view-link.ts";
+import { offsetFrom } from "./test-geo.ts";
 
 const USER: LatLng = { lat: 53.55, lon: 10 };
-// About 111 m per thousandth of a degree of latitude, about 66 m per thousandth of longitude here.
-const METRES_PER_DEGREE_LAT = 111_320;
-const METRES_PER_DEGREE_LON = METRES_PER_DEGREE_LAT * Math.cos((USER.lat * Math.PI) / 180);
 
 function offset(east: number, north: number): LatLng {
-  return { lat: USER.lat + north / METRES_PER_DEGREE_LAT, lon: USER.lon + east / METRES_PER_DEGREE_LON };
+  return offsetFrom(USER, east, north);
 }
 
 function parse(url: string): URLSearchParams {

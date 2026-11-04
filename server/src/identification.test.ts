@@ -386,9 +386,9 @@ describe("identify", () => {
     const shop = building("shop", -10, 90, 10, 110);
     const asked: LatLng[] = [];
     const source: FootprintSource = {
+      ...sourceOf(),
       covers: async (position) => (asked.push(position), false),
       footprintsAround: async () => [shop],
-      shellsOf: async () => new Map(),
     };
 
     const { candidates, warnings, lineOfSight } = await identify(facing(0), source);
@@ -405,10 +405,10 @@ describe("identify", () => {
     let footprintsAsked!: () => void;
     const asked = new Promise<void>((resolve) => (footprintsAsked = resolve));
     const source: FootprintSource = {
+      ...sourceOf(),
       // Answers only once the Footprints have been asked for.
       covers: async () => (await asked, true),
       footprintsAround: async () => (footprintsAsked(), [shop]),
-      shellsOf: async () => new Map(),
     };
 
     const { candidates } = await identify(facing(0), source);
@@ -418,11 +418,11 @@ describe("identify", () => {
 
   it("warns about a Snapshot outside the Coverage Area even when the Footprints around it can't be had", async () => {
     const source: FootprintSource = {
+      ...sourceOf(),
       covers: async () => false,
       footprintsAround: async () => {
         throw new Error("download failed");
       },
-      shellsOf: async () => new Map(),
     };
 
     const { warnings } = await identify(facing(0), source);
@@ -432,11 +432,11 @@ describe("identify", () => {
 
   it("fails when the Footprints can't be had inside the Coverage Area", async () => {
     const source: FootprintSource = {
+      ...sourceOf(),
       covers: async () => true,
       footprintsAround: async () => {
         throw new Error("download failed");
       },
-      shellsOf: async () => new Map(),
     };
 
     await expect(identify(facing(0), source)).rejects.toThrow(/download failed/);
@@ -497,7 +497,7 @@ describe("identify", () => {
 
   it("gives a block to a Candidate the source has no Shell for", async () => {
     const shed = building("shed", -5, 95, 5, 105, { heightMetres: 3 });
-    const source: FootprintSource = { ...sourceOf(shed), shellsOf: async () => new Map() };
+    const source = sourceOf(shed);
 
     const { candidates } = await identify(facing(0), source);
 

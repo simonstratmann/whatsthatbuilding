@@ -84,7 +84,8 @@ export async function importHamburg({
   const files = (await readdir(releaseDir)).filter((name) => name.endsWith(".gml")).sort();
   async function* tiles(): AsyncIterable<Lod2Tile> {
     for (const [index, file] of files.entries()) {
-      const tile = parseLod2Tile(await readFile(join(releaseDir, file), "utf8"));
+      // Named as its file is, whatever the file calls itself, so cachedHamburgTile finds it.
+      const tile = { ...parseLod2Tile(await readFile(join(releaseDir, file), "utf8")), name: basename(file, ".gml") };
       if ((index + 1) % 50 === 0 || index + 1 === files.length) log(`Parsed ${index + 1} of ${files.length} tiles`);
       yield tile;
     }
@@ -96,6 +97,22 @@ export async function importHamburg({
     if (entry !== release) await rm(join(hamburgDir, entry), { recursive: true, force: true });
   }
   return { release, tiles: tileCount, buildings };
+}
+
+/**
+ * Where the file cache keeps the GML of a stored Hamburg tile: in the release folder, under the
+ * tile's name. Undefined when it isn't there.
+ */
+export async function cachedHamburgTile(cacheDir: string, name: string): Promise<string | undefined> {
+  const hamburgDir = join(cacheDir, "hamburg");
+  const releases = await readdir(hamburgDir, { withFileTypes: true }).catch(() => []);
+  for (const release of releases) {
+    // A folder still being unpacked ends in .part.
+    if (!release.isDirectory() || release.name.endsWith(".part")) continue;
+    const path = join(hamburgDir, release.name, `${name}.gml`);
+    if (await exists(path)) return path;
+  }
+  return undefined;
 }
 
 async function download(url: string, path: string, fetchFn: typeof fetch): Promise<void> {

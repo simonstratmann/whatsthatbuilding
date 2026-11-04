@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import yazl from "yazl";
 import searchResponse from "./fixtures/hamburg-lod2-package-search.json" with { type: "json" };
-import { importHamburg, newestHamburgRelease } from "./hamburg-import.ts";
+import { cachedHamburgTile, importHamburg, newestHamburgRelease } from "./hamburg-import.ts";
 import { lod2Store, type Lod2Store } from "./lod2-store.ts";
 import { freshDatabase } from "./test-database.ts";
 
@@ -103,6 +103,17 @@ describe("importHamburg", () => {
     const shells = await store.shellsOf(["DEHHALKA90000Hr8", "DEHHALKAJ0000pzB", "DEHHALKA4RH000OT"]);
     expect(shells.size).toBe(3);
     expect(shells.get("DEHHALKA4RH000OT")?.map((s) => s.kind).sort()).toEqual(["ground", "roof", "wall", "wall", "wall", "wall"]);
+  });
+
+  it("names each tile after its file, so the file cache can give it again", async () => {
+    const { fetchFn } = serving({ [RELEASE_2026]: await releaseZip({ "LoD2_32_565_5933_1_HH_renamed.gml": excerpt }) });
+    await importHamburg({ store, cacheDir, releaseUrl: RELEASE_2026, fetchFn, log: quiet });
+
+    expect(await cachedHamburgTile(cacheDir, "LoD2_32_565_5933_1_HH_renamed")).toBe(
+      join(cacheDir, "hamburg", "LoD2-DE_HH_2026-04-28", "LoD2_32_565_5933_1_HH_renamed.gml"),
+    );
+    expect(await store.knownTiles(["LoD2_32_565_5933_1_HH_renamed"])).toEqual(new Set(["LoD2_32_565_5933_1_HH_renamed"]));
+    expect(await cachedHamburgTile(cacheDir, "LoD2_32_999_9999_1_HH")).toBeUndefined();
   });
 
   it("loads a release already in the file cache without downloading it again", async () => {

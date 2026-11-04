@@ -58,7 +58,7 @@ export function bearing(from: LatLng, to: LatLng): number {
 }
 
 /** A ring's edges, the last one closing it; the ring needn't repeat its first point. */
-export function* edges(ring: Point[]): Generator<[Point, Point]> {
+export function* edges<P = Point>(ring: P[]): Generator<[P, P]> {
   for (let i = 0; i < ring.length; i++) {
     yield [ring[i]!, ring[(i + 1) % ring.length]!];
   }

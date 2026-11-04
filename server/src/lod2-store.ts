@@ -1,9 +1,8 @@
-import type { Footprint, LatLng } from "@whatisthatbuilding/shared";
+import type { Footprint, LatLng, SurfaceKind } from "@whatisthatbuilding/shared";
 import pg from "pg";
-import type { SurfaceKind } from "@whatisthatbuilding/shared";
 import type { StoredShell } from "./building-shells.ts";
 import type { FootprintSource } from "./identification.ts";
-import type { Lod2Surface, Lod2Tile } from "./lod2-parser.ts";
+import type { Lod2Tile } from "./lod2-parser.ts";
 
 /** Which state's LoD2 model a tile belongs to; a new import replaces all tiles of its dataset. */
 export type Lod2Dataset = "hamburg" | "niedersachsen";
@@ -166,7 +165,7 @@ export function lod2Store(databaseUrl: string): Lod2Store {
       await ready();
       return inTransaction(pool, async (client) => {
         await client.query("DELETE FROM lod2_tile WHERE name = $1 AND dataset = $2", [tile.name, dataset]);
-        return insertTile(client, dataset, tile);
+        return insertTile(client, dataset, tile, { fillInShells: true });
       });
     },
 
@@ -210,13 +209,14 @@ export function lod2Store(databaseUrl: string): Lod2Store {
 
 /**
  * Stores the tile and its buildings; returns how many buildings went in. With `unlessThere`, a
- * tile of that name stored already is left alone; without it, a second one is an error.
+ * tile of that name stored already is left alone; without it, a second one is an error. With
+ * `fillInShells`, a building another tile stored first, without a Shell, gets this one's.
  */
 async function insertTile(
   client: pg.PoolClient,
   dataset: Lod2Dataset,
   { name, extent, buildings }: Lod2Tile,
-  { unlessThere = false } = {},
+  { unlessThere = false, fillInShells = false } = {},
 ): Promise<number> {
   // With unlessThere, a second insert of the same name waits here until the first commits, then does nothing.
   const { rowCount: inserted } = await client.query(
@@ -238,7 +238,12 @@ async function insertTile(
                FROM unnest($2::text[], $3::text[], $4::float8[], $5::text[], $6::text[], $7::text[], $8::text[], $9::text[], $10::text[])
                  AS b (id, outline, height_metres, function_code, street, house_number, city, shell, shell_kinds)) AS parsed
      -- A building on a tile boundary could be in both tiles; the first one counts.
-     ON CONFLICT (id) DO NOTHING`,
+     ON CONFLICT (id) DO ${
+       fillInShells
+         ? `UPDATE SET shell = EXCLUDED.shell, shell_kinds = EXCLUDED.shell_kinds
+             WHERE footprint.shell IS NULL AND EXCLUDED.shell IS NOT NULL`
+         : "NOTHING"
+     }`,
     [
       name,
       stored.map((b) => b.id),
@@ -248,7 +253,7 @@ async function insertTile(
       stored.map((b) => b.address?.street ?? null),
       stored.map((b) => b.address?.houseNumber ?? null),
       stored.map((b) => b.address?.city ?? null),
-      stored.map((b) => (b.shell ? JSON.stringify({ type: "MultiPolygon", coordinates: b.shell.map(({ ring }) => [closed3d(ring)]) }) : null)),
+      stored.map((b) => (b.shell ? JSON.stringify({ type: "MultiPolygon", coordinates: b.shell.map(({ ring }) => [[...ring, ring[0]!]]) }) : null)),
       stored.map((b) => (b.shell ? b.shell.map(({ kind }) => kind).join(",") : null)),
     ],
   );
@@ -280,11 +285,6 @@ function toStoredShell(geoJson: string, kinds: SurfaceKind[]): StoredShell {
     // Without its closing point.
     ring: (outer ?? []).slice(0, -1).map(([lon, lat, elevation]) => ({ lat, lon, elevation })),
   }));
-}
-
-/** A Shell's ring as GeoJSON wants it, still in UTM32: ending where it starts. */
-function closed3d(ring: Lod2Surface["ring"]): number[][] {
-  return [...ring, ring[0]!];
 }
 
 /** A ring as GeoJSON wants it: [lon, lat] pairs, ending where it starts. */

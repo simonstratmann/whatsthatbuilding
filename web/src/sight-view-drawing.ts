@@ -30,12 +30,13 @@ export function drawSightView(
     if (candidate) onTap(candidate);
   });
 
-  const draw = (chosen?: number) => render(svg, sightView(identification, chosen));
+  const draw = (chosen?: number) => drawInto(svg, sightView(identification, chosen));
   draw();
   return { highlight: draw, destroy() {} };
 }
 
-function render(svg: SVGSVGElement, view: SightView): void {
+/** Replaces what the SVG shows with the view. */
+function drawInto(svg: SVGSVGElement, view: SightView): void {
   svg.setAttribute("viewBox", `0 0 ${view.width} ${view.height}`);
   svg.replaceChildren();
 

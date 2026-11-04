@@ -1,7 +1,8 @@
-import { mkdir, readdir, readFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { LatLng } from "@whatisthatbuilding/shared";
 import { exists, saveBody } from "./file-cache.ts";
+import { cachedHamburgTile } from "./hamburg-import.ts";
 import type { FootprintSource } from "./identification.ts";
 import { parseLod2Tile } from "./lod2-parser.ts";
 import type { Lod2Store, StoredTile } from "./lod2-store.ts";
@@ -107,6 +108,8 @@ export function niedersachsenLoader({
   const tilesDir = join(cacheDir, "niedersachsen");
   const inFlight = new Map<string, Promise<Outcome>>();
   const upgrading = new Map<string, Promise<void>>();
+  /** Tiles that couldn't be read again; until a restart, they are answered as they are. */
+  const notUpgradable = new Set<string>();
   const downloadSlot = limiter(CONCURRENT_DOWNLOADS);
 
   /** Starts loading the tile, or joins the load already under way. */
@@ -165,15 +168,7 @@ export function niedersachsenLoader({
       const path = join(tilesDir, `${name}.gml`);
       return (await exists(path)) ? path : undefined;
     }
-    // Hamburg's tiles are named as their files are, in the one release the cache keeps.
-    const hamburgDir = join(cacheDir, "hamburg");
-    const releases = await readdir(hamburgDir, { withFileTypes: true }).catch(() => []);
-    for (const release of releases) {
-      if (!release.isDirectory() || release.name.endsWith(".part")) continue;
-      const path = join(hamburgDir, release.name, `${name}.gml`);
-      if (await exists(path)) return path;
-    }
-    return undefined;
+    return cachedHamburgTile(cacheDir, name);
   }
 
   /**
@@ -183,15 +178,17 @@ export function niedersachsenLoader({
   async function upgrade(centre: LatLng, radiusMetres: number): Promise<void> {
     const outdated = await store.outdatedTiles(centre, radiusMetres);
     await Promise.all(
-      outdated.map((tile) => {
+      outdated
+        .filter((tile) => !notUpgradable.has(tile.name))
+        .map((tile) => {
         // Parsing takes as much memory as after a download, so it shares the download slots.
         let promise = upgrading.get(tile.name);
         if (!promise) {
           promise = downloadSlot(() => upgradeTile(tile)).finally(() => upgrading.delete(tile.name));
           upgrading.set(tile.name, promise);
         }
-        // upgradeTile has logged the failure.
-        return promise.catch(() => {});
+        // upgradeTile has logged the failure; asking again would only log it again.
+        return promise.catch(() => void notUpgradable.add(tile.name));
       }),
     );
   }
