@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (Split the repo into web, server and shared)
 
-**Status:** ready-for-human
+**Status:** resolved
 
 - [x] `POST /api/identify` takes a Snapshot and returns Candidates, warnings, Sight Cone and Line of Sight, typed in `shared`
 - [x] The phone and dev mode use the API; no identification or Overpass code runs in the browser
@@ -25,3 +25,5 @@
 - The image listens on 8080 as the `node` user, and Compose maps 8080→8080 and 4173→8080. The dev image no longer needs `ALLOWED_HOSTS`/`DEV_HOST`.
 - Request IDs use the server's local time; the image sets `TZ=Europe/Berlin`.
 - Still to check by hand: a Snapshot on the phone.
+
+**2026-11-04 (user):** Checked by hand: the app works on the current build. Aerial Photos show on the mini-map, and Candidates carry names such as "REWE" and Building Types such as "Gewerbegebäude".
