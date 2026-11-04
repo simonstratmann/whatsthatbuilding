@@ -20,8 +20,8 @@ export async function startDemo(app: HTMLElement, snapshot: Snapshot): Promise<v
     showIdentificationScreen(answer, attempt, {
       className: "candidate-screen",
       onRetry: () => void identifyAndShow(),
-      // A friend on a laptop has no maps app to hand off to; links work everywhere.
-      openMapsOnChoose: false,
+      // A friend on a laptop has no maps app to hand off to; a web link works everywhere.
+      mapsLink: "web",
     });
   };
   await identifyAndShow();

@@ -1,9 +1,9 @@
 import type { Candidate, Identification } from "@whatisthatbuilding/shared";
 import type { CandidatePicture } from "./candidate-map.ts";
-import { sightView, type SightView } from "./sight-view.ts";
+import { slotClass } from "./candidate-slots.ts";
+import { NUMBER_RADIUS, sightView, type SightView } from "./sight-view.ts";
 
 const SVG = "http://www.w3.org/2000/svg";
-const NUMBER_RADIUS = 34;
 
 /**
  * The Sight View in SVG: each Candidate's walls and roof, in the mini-map's colours, with its
@@ -31,7 +31,11 @@ export function drawSightView(
     if (candidate) onTap(candidate);
   });
 
-  const draw = (chosen?: number) => drawInto(svg, sightView(identification, chosen));
+  const draw = (chosen?: number) => {
+    // Once one is selected, the others step back.
+    svg.classList.toggle("has-selection", chosen !== undefined);
+    drawInto(svg, sightView(identification, chosen));
+  };
   draw();
   return { highlight: draw, destroy() {} };
 }
@@ -45,7 +49,16 @@ function drawInto(svg: SVGSVGElement, view: SightView): void {
     svg.append(
       element("polygon", {
         points: points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" "),
-        class: `building ${role} ${surface}${chosen ? " chosen" : ""}${hidden ? " hidden-outline" : ""}`,
+        class: [
+          "building",
+          role,
+          surface,
+          number === undefined ? "" : slotClass(number),
+          chosen ? "chosen" : "",
+          hidden ? "hidden-outline" : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
         // Only Candidates can be chosen: a tap on the Surroundings finds no number.
         ...(number === undefined ? {} : { "data-number": String(number) }),
       }),
@@ -60,9 +73,20 @@ function drawInto(svg: SVGSVGElement, view: SightView): void {
     svg.append(element("line", { x1: String(x), x2: String(x), y1: "0", y2: String(view.height), class: className }));
   }
 
-  for (const { number, x, y, chosen } of view.numbers) {
-    const label = element("g", { class: `number${chosen ? " chosen" : ""}`, "data-number": String(number) });
+  for (const { number, x, y, anchorX, anchorY, chosen } of view.numbers) {
+    const label = element("g", {
+      class: `number ${slotClass(number)}${chosen ? " chosen" : ""}`,
+      "data-number": String(number),
+    });
     label.append(
+      // From the bottom of the circle to the top of its building.
+      element("line", {
+        x1: x.toFixed(1),
+        y1: (y + NUMBER_RADIUS).toFixed(1),
+        x2: anchorX.toFixed(1),
+        y2: anchorY.toFixed(1),
+        class: "pointer",
+      }),
       element("circle", { cx: x.toFixed(1), cy: y.toFixed(1), r: String(NUMBER_RADIUS) }),
       element("text", { x: x.toFixed(1), y: y.toFixed(1) }, String(number)),
     );

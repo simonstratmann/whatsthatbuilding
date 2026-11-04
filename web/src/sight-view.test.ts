@@ -7,7 +7,7 @@ import type {
   ShellPoint,
   SurroundingsBuilding,
 } from "@whatisthatbuilding/shared";
-import { sightView, type SightView } from "./sight-view.ts";
+import { NUMBER_RADIUS, sightView, type SightView } from "./sight-view.ts";
 import { offsetFrom } from "./test-geo.ts";
 
 // The user stands here in every scenario.
@@ -270,6 +270,29 @@ describe("sightView", () => {
     expect(Math.max(...ys)).toBeLessThanOrEqual(view.height);
     expect(Math.min(...ys)).toBeGreaterThanOrEqual(0);
     expect(view.height).toBeLessThanOrEqual(view.width);
+  });
+
+  it("keeps numbers apart when the buildings' highest points are close, with a line back to each", () => {
+    // Three houses side by side at the same height: their tops are close in the view.
+    const view = sightView(
+      identification(
+        0,
+        candidate(1, box(-1, 150, { width: 3, height: 12 })),
+        candidate(2, box(0, 150, { width: 3, height: 12 })),
+        candidate(3, box(1, 150, { width: 3, height: 12 })),
+      ),
+    );
+
+    expect(view.numbers).toHaveLength(3);
+    for (const a of view.numbers) {
+      for (const b of view.numbers) {
+        if (a !== b) expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(2 * NUMBER_RADIUS);
+      }
+      // Each still points at its building's highest point, from above it.
+      const top = Math.min(...polygonsOf(view, a.number).flatMap((p) => p.points.map(([, y]) => y)));
+      expect(a.anchorY).toBeCloseTo(top, 6);
+      expect(a.y).toBeLessThan(a.anchorY);
+    }
   });
 
   it("gives the Line of Sight in the middle and the Sight Cone's edges at ±15°", () => {

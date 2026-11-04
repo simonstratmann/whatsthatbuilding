@@ -68,7 +68,7 @@ async function identifyAndShow(app: HTMLElement, taken: TakenSnapshot): Promise<
   const screen = showIdentificationScreen(app, attempt, {
     className: "candidate-screen",
     // The Location opens in the maps app; coming back from it means the next building.
-    onChoose: () => {
+    onOpenMaps: () => {
       stopWaiting();
       stopWaiting = whenPageReturns(() => {
         closeScreen();

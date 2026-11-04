@@ -1,6 +1,7 @@
 import L from "leaflet";
 import type { Candidate, Identification } from "@whatisthatbuilding/shared";
 import { addBaseLayers, addBuildingDataCredit, toLeaflet } from "./leaflet-map.ts";
+import { slotClass } from "./candidate-slots.ts";
 
 const FIT_PADDING_PIXELS = 24;
 
@@ -33,11 +34,13 @@ export function drawCandidateMap(
   const footprints = candidates.map((candidate) => ({
     number: candidate.number,
     // Each ring is its own outer ring, not a hole, so wrap it as a separate polygon part.
-    polygon: L.polygon(candidate.footprint.rings.map((ring) => [ring.map(toLeaflet)]), { className: "footprint" })
+    polygon: L.polygon(candidate.footprint.rings.map((ring) => [ring.map(toLeaflet)]), {
+      className: `footprint ${slotClass(candidate.number)}`,
+    })
       .bindTooltip(String(candidate.number), {
         permanent: true,
         direction: "center",
-        className: "footprint-number",
+        className: `footprint-number ${slotClass(candidate.number)}`,
         interactive: true,
       })
       .on("click", () => onTap(candidate))
@@ -52,6 +55,7 @@ export function drawCandidateMap(
 
   return {
     highlight(chosen) {
+      element.classList.add("has-selection");
       for (const { number, polygon } of footprints) {
         const isChosen = number === chosen;
         polygon.getElement()?.classList.toggle("chosen", isChosen);

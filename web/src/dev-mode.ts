@@ -85,8 +85,8 @@ export function startDevMode(app: HTMLElement): void {
     button.disabled = false;
     if (attempt === CANCELLED) return;
     candidateScreen = showIdentificationScreen(candidateArea, attempt, {
-      onChoose: (candidate) => {
-        chosenReading.textContent = `Chose Candidate ${candidate.number} (${candidate.footprint.id}): ${candidate.location.geoUri}`;
+      onSelect: (candidate) => {
+        chosenReading.textContent = `Selected Candidate ${candidate.number} (${candidate.footprint.id}): ${candidate.location.geoUri}`;
       },
       onRetry: () => button.click(),
     });

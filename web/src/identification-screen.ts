@@ -6,28 +6,32 @@ import { mapsPinUrl, streetViewUrl } from "./google-maps-links.ts";
 export interface IdentificationScreenOptions {
   /** Class of the element the Candidates or the error go in. */
   className?: string;
-  /** Called when the user chooses a Candidate, just before its Location goes to the maps app. */
-  onChoose?: (candidate: Candidate) => void;
+  /** Called when the user selects a Candidate in the Sight View, on the map or in the list. */
+  onSelect?: (candidate: Candidate) => void;
+  /** Called when the user opens the selected Candidate's Location in the maps app. */
+  onOpenMaps?: (candidate: Candidate) => void;
   /** Sends the same Snapshot again; offered when the server couldn't be asked or failed. */
   onRetry?: () => void;
   /** Back to the viewfinder for another Snapshot; offered on every outcome. */
   onBack?: () => void;
   /**
-   * Whether choosing a Candidate opens its Location in the maps app at once (the default), or
-   * only offers a link to it, as a demo on any device does.
+   * How "Open in maps" opens the Location: by its geo: URI, which the phone hands to the
+   * default maps app (the default), or by a Google Maps link in a new tab, which works on any
+   * device, as a demo needs.
    */
-  openMapsOnChoose?: boolean;
+  mapsLink?: "geo" | "web";
 }
 
 /**
  * What a Snapshot led to, on the phone and in dev mode alike: its request ID, then the
- * Candidates or why there are none. Choosing a Candidate logs the choice, opens its
- * Location in the maps app (or offers a link to it), and offers a link to Street View facing it.
+ * Candidates or why there are none. Selecting a Candidate only highlights it, so the user can
+ * look which it is; then "Open in maps" logs the choice and hands its Location to the maps app,
+ * beside a link to Street View facing it.
  */
 export function showIdentificationScreen(
   container: HTMLElement,
   attempt: IdentifyAttempt,
-  { className, onChoose, onRetry, onBack, openMapsOnChoose = true }: IdentificationScreenOptions = {},
+  { className, onSelect, onOpenMaps, onRetry, onBack, mapsLink = "geo" }: IdentificationScreenOptions = {},
 ): CandidateScreen {
   container.innerHTML = "";
   if (attempt.requestId) container.append(requestIdLine(attempt.requestId));
@@ -48,33 +52,40 @@ export function showIdentificationScreen(
     return { destroy() {} };
   }
   const { requestId, identification } = attempt;
-  const handOff = document.createElement("p");
+  const handOff = document.createElement("div");
   handOff.className = "hand-off";
   handOff.hidden = true;
-  const outsideLink = (text: string) => {
-    const link = document.createElement("a");
-    link.textContent = text;
+  const maps = document.createElement("a");
+  maps.className = "open-maps";
+  maps.textContent = "Open in maps";
+  const streetView = document.createElement("a");
+  streetView.textContent = "Street View";
+  for (const link of mapsLink === "web" ? [maps, streetView] : [streetView]) {
     // Outside the app, never in place of it.
     link.target = "_blank";
     link.rel = "noopener";
-    return link;
-  };
-  const maps = outsideLink("Open in maps");
-  const streetView = outsideLink("Street View");
-  if (!openMapsOnChoose) handOff.append(maps);
-  handOff.append(streetView);
+  }
+  handOff.append(maps, streetView);
+
+  let selected: Candidate | undefined;
+  maps.addEventListener("click", () => {
+    if (!selected) return;
+    logChoice(requestId, selected);
+    onOpenMaps?.(selected);
+  });
 
   const candidateScreen = showCandidateScreen(screen, identification, (candidate) => {
-    logChoice(requestId, candidate);
-    onChoose?.(candidate);
+    selected = candidate;
+    onSelect?.(candidate);
+    // On a desktop browser a geo: URI may ask which app should open it, or open nothing.
+    maps.href = mapsLink === "web" ? mapsPinUrl(candidate.location.position) : candidate.location.geoUri;
+    maps.setAttribute("aria-label", `Open Candidate ${candidate.number} in maps`);
     streetView.href = streetViewUrl(identification.lineOfSight.from, candidate.footprint.centre);
     streetView.setAttribute("aria-label", `Street View facing Candidate ${candidate.number}`);
-    maps.href = mapsPinUrl(candidate.location.position);
     handOff.hidden = false;
-    // On a desktop browser this may ask which app should open it.
-    if (openMapsOnChoose) window.location.href = candidate.location.geoUri;
   });
-  screen.append(handOff);
+  // Right under the pictures, where the eye is when selecting.
+  (screen.querySelector(".pictures") ?? screen).after(handOff);
   const backLabel = identification.candidates.length > 0 ? "None of these: back" : "Take another Snapshot";
   container.append(actions([onBack && [backLabel, onBack]]));
   return candidateScreen;

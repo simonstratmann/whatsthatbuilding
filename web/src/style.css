@@ -20,8 +20,24 @@ html, body, #app { margin: 0; height: 100%; font-family: system-ui, sans-serif; 
 .dev-position { background: #1a73e8; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 4px #0006; }
 .dev-handle { background: #d33; border: 2px solid #fff; border-radius: 50%; cursor: grab; box-shadow: 0 0 4px #0006; }
 
-.candidates { padding-left: 1.5rem; }
-.candidates li { padding: 0.25rem 0; }
+/*
+ * Each Candidate's colour, by number, the same in the Sight View, on the map and in the list.
+ * Categorical slots in a fixed order (checked for colour-blind separation between neighbours);
+ * numbers always go with them, so colour is never the only way to tell Candidates apart.
+ */
+.slot-1 { --c: #2a78d6; }
+.slot-2 { --c: #eb6834; }
+.slot-3 { --c: #1baf7a; }
+.slot-4 { --c: #eda100; }
+.slot-5 { --c: #e87ba4; }
+.slot-6 { --c: #008300; }
+.slot-7 { --c: #6250d6; }
+.slot-8 { --c: #e34948; }
+/* The selected Candidate keeps its colour and gets a dark outline; the others step back. */
+:root { --selected: #111; }
+
+.candidates { margin: 0.5rem 0 0; padding: 0; list-style: none; }
+.candidates li { padding: 0.15rem 0; }
 
 .picture-toggle { display: flex; margin-top: 1rem; }
 .picture-toggle button { flex: 1; padding: 0.4rem; font: inherit; background: #fff; border: 1px solid #1a73e8; color: #1a73e8; cursor: pointer; }
@@ -37,35 +53,40 @@ html, body, #app { margin: 0; height: 100%; font-family: system-ui, sans-serif; 
 .sight-view { display: block; width: 100%; height: 100%; }
 .sight-view .building { stroke: #fff; stroke-opacity: 0.6; stroke-width: 1; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .sight-view .candidate { cursor: pointer; }
-.sight-view .candidate.wall { fill: #f5a540; }
-.sight-view .candidate.roof { fill: #b35f00; }
-.sight-view .candidate.wall.chosen { fill: #5a9cf0; }
-.sight-view .candidate.roof.chosen { fill: #0b4fae; }
-/* Transparent rather than none, so a tap on the outline's inside still chooses it. */
-.sight-view .candidate.hidden-outline { fill: transparent; stroke: #b35f00; stroke-opacity: 0.9; stroke-width: 1.5; stroke-dasharray: 5 4; }
-.sight-view .candidate.hidden-outline.chosen { fill: transparent; stroke: #0b4fae; stroke-width: 2; }
+.sight-view .candidate.wall { fill: var(--c); }
+.sight-view .candidate.roof { fill: color-mix(in srgb, var(--c) 60%, #000); }
+.sight-view.has-selection .candidate:not(.chosen), .sight-view.has-selection .number:not(.chosen) { opacity: 0.3; }
+.sight-view .candidate.chosen { stroke: var(--selected); stroke-opacity: 1; stroke-width: 1.5; }
+/* Transparent rather than none, so a tap on the outline's inside still selects it. */
+.sight-view .candidate.hidden-outline { fill: transparent; stroke: var(--c); stroke-opacity: 1; stroke-width: 2; stroke-dasharray: 5 4; }
+.sight-view .candidate.hidden-outline.chosen { stroke: var(--selected); stroke-width: 2.5; }
 .sight-view .surroundings.wall { fill: #c4c7cc; }
 .sight-view .surroundings.roof { fill: #8d9299; }
 .sight-view .line-of-sight, .sight-view .sight-cone-edge { stroke: #d33; stroke-opacity: 0.5; stroke-width: 1.5; vector-effect: non-scaling-stroke; pointer-events: none; }
 .sight-view .line-of-sight { stroke-dasharray: 6 4; }
 .sight-view .sight-cone-edge { stroke-opacity: 0.3; }
 .sight-view .number { cursor: pointer; }
-.sight-view .number circle { fill: #fff; stroke: #b35f00; stroke-width: 2; vector-effect: non-scaling-stroke; }
-.sight-view .number text { font: 700 40px system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; fill: #000; }
-.sight-view .number.chosen circle { fill: #1a73e8; stroke: #0b4fae; }
-.sight-view .number.chosen text { fill: #fff; }
+.sight-view .number circle { fill: #fff; stroke: var(--c); stroke-width: 4; vector-effect: non-scaling-stroke; }
+.sight-view .number text { font: 700 40px system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; fill: #111; }
+.sight-view .number.chosen circle { stroke: var(--selected); }
+.sight-view .number .pointer { stroke: var(--c); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.sight-view .number.chosen .pointer { stroke: var(--selected); }
 .mini-map .sight-cone { fill: #d33; fill-opacity: 0.18; stroke: #d33; stroke-opacity: 0.8; stroke-width: 1.5; }
 .mini-map .line-of-sight { stroke: #d33; stroke-width: 2; stroke-dasharray: 6 4; }
-.mini-map .footprint { fill: #f08c00; fill-opacity: 0.35; stroke: #b35f00; stroke-width: 2; }
-.mini-map .footprint.chosen { fill: #1a73e8; fill-opacity: 0.5; stroke: #0b4fae; stroke-width: 3; }
+.mini-map .footprint { fill: var(--c); fill-opacity: 0.45; stroke: var(--c); stroke-width: 2; }
+.mini-map.has-selection .footprint:not(.chosen), .mini-map.has-selection .footprint-number:not(.chosen) { opacity: 0.35; }
+.mini-map .footprint.chosen { fill-opacity: 0.7; stroke: var(--selected); stroke-width: 3; }
 .mini-map .user-position { fill: #1a73e8; fill-opacity: 1; stroke: #fff; stroke-width: 2; }
-.footprint-number { padding: 0 0.35rem; font-weight: 700; background: #fff; border: 1px solid #b35f00; box-shadow: none; }
+.footprint-number { padding: 0 0.35rem; font-weight: 700; color: #111; background: #fff; border: 2px solid var(--c); box-shadow: none; }
 .footprint-number::before { display: none; }
-.footprint-number.chosen { background: #1a73e8; border-color: #0b4fae; color: #fff; }
+.footprint-number.chosen { border-color: var(--selected); }
 
 .candidates button { width: 100%; padding: 0.4rem 0.5rem; font: inherit; text-align: left; background: none; border: 1px solid transparent; border-radius: 4px; cursor: pointer; }
 .candidates button:hover { border-color: #ccc; }
-.candidates li.chosen button { background: #e8f0fe; border-color: #1a73e8; }
+.candidates .badge { display: inline-block; min-width: 1.6rem; margin-right: 0.5rem; padding: 0 0.3rem; font-weight: 700; text-align: center; color: #111; background: #fff; border: 3px solid var(--c); border-radius: 1rem; }
+.candidates.has-selection li:not(.chosen) { opacity: 0.55; }
+.candidates li.chosen button { background: #f1f3f4; border-color: var(--selected); }
+.candidates li.chosen .badge { border-color: var(--selected); }
 .chosen-reading { color: #555; }
 
 .intro { max-width: 32rem; margin: 0 auto; padding: 1.5rem; line-height: 1.4; }
@@ -93,6 +114,7 @@ html, body, #app { margin: 0; height: 100%; font-family: system-ui, sans-serif; 
 #app > .request-id, .demo-answer > .request-id { padding: 0 1rem; }
 .request-id code { user-select: all; font-size: 0.95rem; color: #000; }
 
-.hand-off { display: flex; gap: 0.5rem; margin: 0.75rem 0 0; }
+.hand-off { display: flex; gap: 0.5rem; margin: 0.5rem 0 0; }
 .hand-off[hidden] { display: none; }
-.hand-off a { display: inline-block; padding: 0.5rem 0.75rem; border: 1px solid #1a73e8; border-radius: 4px; color: #1a73e8; text-decoration: none; }
+.hand-off a { display: inline-block; padding: 0.6rem 0.9rem; border: 1px solid #1a73e8; border-radius: 4px; color: #1a73e8; text-decoration: none; }
+.hand-off a.open-maps { flex: 1; text-align: center; font-weight: 600; color: #fff; background: #1a73e8; }

@@ -29,8 +29,12 @@ export interface SightPolygon {
 /** Where a Candidate's number goes: above its highest point. */
 export interface SightNumber {
   number: number;
+  /** The middle of the number's circle. */
   x: number;
   y: number;
+  /** The highest point of its building, which a line from the circle points at. */
+  anchorX: number;
+  anchorY: number;
   chosen: boolean;
 }
 
@@ -66,8 +70,12 @@ const MAX_HEIGHT = WIDTH * 0.85;
 const BELOW_HORIZON = MAX_HEIGHT * 0.3;
 /** Room above the highest point for the numbers. */
 const HEADROOM = 110;
-/** How far above a Candidate's highest point its number sits. */
+/** The radius of a number's circle; no two circles overlap. */
+export const NUMBER_RADIUS = 34;
+/** How far above a Candidate's highest point its number sits, when nothing is in the way. */
 const NUMBER_GAP = 44;
+/** How far a number moves at a time to get out of another's way. */
+const NUMBER_STEP = 24;
 /** How far a number's middle stays from the edges, so it isn't cut off. */
 const NUMBER_MARGIN = 40;
 /** For a view with nothing in it. */
@@ -147,17 +155,14 @@ export function sightView({ candidates, surroundings, lineOfSight }: Identificat
   const byDistance = [...buildings].sort((a, b) => b.distance - a.distance);
   for (const { number, surfaces } of byDistance) polygons.push(...polygonsOf(number, surfaces, false));
   for (const { number, surfaces, hidden } of byDistance) if (hidden) polygons.push(...polygonsOf(number, surfaces, true));
-  for (const { number, surfaces } of buildings) {
+  for (const { number, surfaces } of [...buildings].sort((a, b) => (a.number ?? 0) - (b.number ?? 0))) {
     if (number === undefined) continue;
     const highestPoint = surfaces.flatMap(({ points }) => points).reduce((a, b) => (b.y > a.y ? b : a));
-    const [x, y] = toView(highestPoint);
-    numbers.push({
-      number,
-      x: Math.min(Math.max(x, NUMBER_MARGIN), WIDTH - NUMBER_MARGIN),
-      y: Math.max(y - NUMBER_GAP, NUMBER_MARGIN),
-      chosen: number === chosen,
-    });
+    const [anchorX, anchorY] = toView(highestPoint);
+    const [x, y] = placeNumber(anchorX, anchorY, numbers);
+    numbers.push({ number, x, y, anchorX, anchorY, chosen: number === chosen });
   }
+
 
   const edgeX = (WIDTH / 2) * (Math.tan(radians(SIGHT_CONE_HALF_ANGLE_DEGREES)) / TAN_HALF_VIEW);
   return {
@@ -168,6 +173,27 @@ export function sightView({ candidates, surroundings, lineOfSight }: Identificat
     lineOfSightX: WIDTH / 2,
     sightConeEdgesX: [WIDTH / 2 - edgeX, WIDTH / 2 + edgeX],
   };
+}
+
+/**
+ * Where a number's circle goes: above its building's highest point, or, when a number placed
+ * before it (a better-ranked Candidate's) is in the way, the nearest free spot higher up or to
+ * either side. Always inside the view.
+ */
+function placeNumber(anchorX: number, anchorY: number, placed: SightNumber[]): [number, number] {
+  const inside = (x: number, y: number): [number, number] => [
+    Math.min(Math.max(x, NUMBER_MARGIN), WIDTH - NUMBER_MARGIN),
+    Math.max(y, NUMBER_MARGIN),
+  ];
+  const free = ([x, y]: [number, number]) => placed.every((other) => Math.hypot(other.x - x, other.y - y) >= 2 * NUMBER_RADIUS);
+  const natural = inside(anchorX, anchorY - NUMBER_GAP);
+  for (let up = 0; up <= 12; up++) {
+    for (const across of [0, 1, -1, 2, -2, 3, -3]) {
+      const spot = inside(natural[0] + across * 2 * NUMBER_RADIUS, natural[1] - up * NUMBER_STEP);
+      if (free(spot)) return spot;
+    }
+  }
+  return natural;
 }
 
 /**

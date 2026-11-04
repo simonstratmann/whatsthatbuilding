@@ -2,6 +2,7 @@ import type { Candidate, Identification } from "@whatisthatbuilding/shared";
 import { candidateEntryText } from "./candidate-entry.ts";
 import { drawCandidateMap, type CandidatePicture } from "./candidate-map.ts";
 import { noticesFor } from "./identification-notices.ts";
+import { slotClass } from "./candidate-slots.ts";
 import { drawSightView } from "./sight-view-drawing.ts";
 
 export interface CandidateScreen {
@@ -13,13 +14,14 @@ type Picture = "view" | "map";
 
 /**
  * The Candidates of one Snapshot: the Sight View or the mini-map, behind a View | Map toggle,
- * above a list in rank order. Tapping a building in either picture or a list entry chooses
- * that Candidate, and all three highlight it.
+ * above a list in rank order. Each Candidate has its own colour in all three (see the slot-N
+ * classes in style.css). Tapping a building in either picture or a list entry selects that
+ * Candidate, and all three highlight it.
  */
 export function showCandidateScreen(
   container: HTMLElement,
   identification: Identification,
-  onChoose: (candidate: Candidate) => void,
+  onSelect: (candidate: Candidate) => void,
 ): CandidateScreen {
   const { candidates, warnings } = identification;
   container.innerHTML = "";
@@ -54,9 +56,13 @@ export function showCandidateScreen(
   const items = candidates.map((candidate) => {
     const item = document.createElement("li");
     item.value = candidate.number;
+    item.className = slotClass(candidate.number);
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = candidateEntryText(candidate);
+    const badge = document.createElement("span");
+    badge.className = "badge";
+    badge.textContent = String(candidate.number);
+    button.append(badge, candidateEntryText(candidate));
     button.addEventListener("click", () => choose(candidate));
     item.append(button);
     list.append(item);
@@ -75,7 +81,8 @@ export function showCandidateScreen(
   function choose(chosen: Candidate): void {
     for (const picture of pictures) picture.highlight(chosen.number);
     for (const { number, item } of items) item.classList.toggle("chosen", number === chosen.number);
-    onChoose(chosen);
+    list.classList.add("has-selection");
+    onSelect(chosen);
   }
 
   return {
