@@ -1,6 +1,7 @@
 import type { Candidate } from "@whatisthatbuilding/shared";
 import { showCandidateScreen, type CandidateScreen } from "./candidate-screen.ts";
 import { logChoice, type IdentifyAttempt } from "./identify-client.ts";
+import { streetViewUrl } from "./street-view-link.ts";
 
 export interface IdentificationScreenOptions {
   /** Class of the element the Candidates or the error go in. */
@@ -15,8 +16,8 @@ export interface IdentificationScreenOptions {
 
 /**
  * What a Snapshot led to, on the phone and in dev mode alike: its request ID, then the
- * Candidates or why there are none. Choosing a Candidate logs the choice and opens its
- * Location in the maps app.
+ * Candidates or why there are none. Choosing a Candidate logs the choice, opens its
+ * Location in the maps app, and offers a link to Street View facing it.
  */
 export function showIdentificationScreen(
   container: HTMLElement,
@@ -42,12 +43,26 @@ export function showIdentificationScreen(
     return { destroy() {} };
   }
   const { requestId, identification } = attempt;
+  const handOff = document.createElement("p");
+  handOff.className = "hand-off";
+  handOff.hidden = true;
+  const streetView = document.createElement("a");
+  streetView.textContent = "Street View";
+  // Outside the app, never in place of it.
+  streetView.target = "_blank";
+  streetView.rel = "noopener";
+  handOff.append(streetView);
+
   const candidateScreen = showCandidateScreen(screen, identification, (candidate) => {
     logChoice(requestId, candidate);
     onChoose?.(candidate);
+    streetView.href = streetViewUrl(identification.lineOfSight.from, candidate.footprint.centre);
+    streetView.setAttribute("aria-label", `Street View facing Candidate ${candidate.number}`);
+    handOff.hidden = false;
     // On a desktop browser this may ask which app should open it.
     window.location.href = candidate.location.geoUri;
   });
+  screen.append(handOff);
   const backLabel = identification.candidates.length > 0 ? "None of these: back" : "Take another Snapshot";
   container.append(actions([onBack && [backLabel, onBack]]));
   return candidateScreen;
