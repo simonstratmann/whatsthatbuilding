@@ -60,17 +60,50 @@ async function identifyAndShow(app: HTMLElement, taken: TakenSnapshot): Promise<
 
   const attempt = await identifyOnServer(taken.snapshot, "phone", taken.orientation, cancel.signal);
   if (attempt === CANCELLED || cancel.signal.aborted) return;
+  let stopWaiting = (): void => {};
+  const closeScreen = (): void => {
+    stopWaiting();
+    screen.destroy();
+  };
   const screen = showIdentificationScreen(app, attempt, {
     className: "candidate-screen",
+    // The Location opens in the maps app; coming back from it means the next building.
+    onChoose: () => {
+      stopWaiting();
+      stopWaiting = whenPageReturns(() => {
+        closeScreen();
+        startViewfinder(app);
+      });
+    },
     onRetry: () => {
-      screen.destroy();
+      closeScreen();
       void identifyAndShow(app, taken);
     },
     onBack: () => {
-      screen.destroy();
+      closeScreen();
       startViewfinder(app);
     },
   });
+}
+
+/**
+ * Calls back once the page is shown again after being hidden, as when the user comes back from
+ * another app. If the page is never hidden (the maps app didn't open), nothing happens.
+ * Returns a function that stops waiting.
+ */
+function whenPageReturns(callback: () => void): () => void {
+  let wasHidden = false;
+  const listener = (): void => {
+    if (document.visibilityState === "hidden") {
+      wasHidden = true;
+    } else if (wasHidden) {
+      stop();
+      callback();
+    }
+  };
+  const stop = (): void => document.removeEventListener("visibilitychange", listener);
+  document.addEventListener("visibilitychange", listener);
+  return stop;
 }
 
 /** Whether camera and location were granted before, so the explanation can be skipped. */

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Full-bleed background; the drawing stays inside the central circle Android keeps when masking. -->
+  <rect width="512" height="512" fill="#1a73e8"/>
+  <g fill="#fff">
+    <rect x="196" y="176" width="120" height="196" rx="6"/>
+    <rect x="236" y="140" width="40" height="44" rx="4"/>
+  </g>
+  <g fill="#1a73e8">
+    <rect x="216" y="200" width="24" height="28"/><rect x="272" y="200" width="24" height="28"/>
+    <rect x="216" y="248" width="24" height="28"/><rect x="272" y="248" width="24" height="28"/>
+    <rect x="240" y="312" width="32" height="60"/>
+  </g>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#dd3333" stroke-width="14" stroke-linecap="round"/>
+  <path d="M256 92v52M256 368v52M92 256h52M368 256h52" fill="none" stroke="#dd3333" stroke-width="14" stroke-linecap="round"/>
+</svg>

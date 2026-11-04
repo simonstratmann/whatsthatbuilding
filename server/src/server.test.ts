@@ -230,6 +230,8 @@ describe("the PWA", () => {
     await mkdir(join(webRoot, "assets"));
     await writeFile(join(webRoot, "index.html"), "<!doctype html><title>app</title>");
     await writeFile(join(webRoot, "assets", "index-abc123.js"), "console.log('app')");
+    await writeFile(join(webRoot, "manifest.webmanifest"), JSON.stringify({ display: "standalone" }));
+    await writeFile(join(webRoot, "sw.js"), "self.addEventListener('fetch', () => {})");
     server = await startServer({ port: 0, footprintSource: sourceOf(), webRoot });
     return server.url;
   }
@@ -241,6 +243,19 @@ describe("the PWA", () => {
     const asset = await fetch(`${url}/assets/index-abc123.js`);
     expect(asset.status).toBe(200);
     expect(asset.headers.get("Cache-Control")).toContain("immutable");
+  });
+
+  it("serves the manifest and the service worker as themselves, the worker always revalidated", async () => {
+    const url = await startWithWebRoot();
+
+    const manifest = await fetch(`${url}/manifest.webmanifest`);
+    expect(manifest.headers.get("Content-Type")).toContain("application/manifest+json");
+    expect(await manifest.json()).toMatchObject({ display: "standalone" });
+
+    const worker = await fetch(`${url}/sw.js`);
+    expect(worker.headers.get("Content-Type")).toContain("javascript");
+    expect(worker.headers.get("Cache-Control")).toBe("no-cache");
+    expect(await worker.text()).toContain("self.addEventListener");
   });
 
   it("answers a missing asset with 404, not the app, so no stale name gets cached as HTML", async () => {

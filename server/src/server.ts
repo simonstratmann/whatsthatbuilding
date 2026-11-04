@@ -90,6 +90,11 @@ export function createApp({ footprintSource, labelSource, dop, requestLogDir, we
       await next();
       if (c.res.ok) c.header("Cache-Control", "public, max-age=31536000, immutable");
     });
+    // The browser checks for a new service worker on each visit; no cache may stand in its way.
+    app.use("/sw.js", async (c, next) => {
+      await next();
+      if (c.res.ok) c.header("Cache-Control", "no-cache");
+    });
     app.use("*", serveStatic({ root: webRoot }));
     // A missing asset is a stale file name, not a page of the app: never answer it with index.html.
     app.all("/assets/*", (c) => c.body(null, 404));

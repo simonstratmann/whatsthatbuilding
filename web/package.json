@@ -9,7 +9,7 @@
     "build": "vite build --configLoader runner",
     "preview": "vite preview --host --configLoader runner",
     "preview:https": "vite build --mode https --configLoader runner && vite preview --host --mode https --configLoader runner",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.sw.json"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.22",
