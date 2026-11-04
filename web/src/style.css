@@ -85,9 +85,14 @@ html, body, #app { margin: 0; height: 100%; font-family: system-ui, sans-serif; 
 
 .candidate-screen { padding: 0 1rem 1rem; }
 
+.demo-intro { padding: 1rem 1rem 0; }
+.demo-intro h1 { margin: 0 0 0.25rem; font-size: 1.3rem; }
+.demo-snapshot { margin: 0; color: #555; }
+
 .request-id { margin: 0.5rem 0 0; font-size: 0.85rem; color: #555; }
-#app > .request-id { padding: 0 1rem; }
+#app > .request-id, .demo-answer > .request-id { padding: 0 1rem; }
 .request-id code { user-select: all; font-size: 0.95rem; color: #000; }
 
-.hand-off { margin: 0.75rem 0 0; }
+.hand-off { display: flex; gap: 0.5rem; margin: 0.75rem 0 0; }
+.hand-off[hidden] { display: none; }
 .hand-off a { display: inline-block; padding: 0.5rem 0.75rem; border: 1px solid #1a73e8; border-radius: 4px; color: #1a73e8; text-decoration: none; }

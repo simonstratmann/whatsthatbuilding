@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LatLng } from "@whatisthatbuilding/shared";
-import { streetViewUrl } from "./street-view-link.ts";
+import { mapsPinUrl, streetViewUrl } from "./google-maps-links.ts";
 import { offsetFrom } from "./test-geo.ts";
 
 const USER: LatLng = { lat: 53.55, lon: 10 };
@@ -39,5 +39,15 @@ describe("streetViewUrl", () => {
     const url = streetViewUrl({ lat: 53.123456789, lon: 9.987654321 }, offset(0, 100));
 
     expect(parse(url).get("viewpoint")).toBe("53.1234568,9.9876543");
+  });
+});
+
+describe("mapsPinUrl", () => {
+  it("opens Google Maps with a pin at the position, by the key-free search URL", () => {
+    const url = mapsPinUrl({ lat: 53.123456789, lon: 9.987654321 });
+
+    expect(url.startsWith("https://www.google.com/maps/search/?")).toBe(true);
+    expect(parse(url).get("api")).toBe("1");
+    expect(parse(url).get("query")).toBe("53.1234568,9.9876543");
   });
 });

@@ -6,6 +6,7 @@ import {
   COMPASS_CALIBRATIONS,
   DOP_PATH,
   IDENTIFY_PATH,
+  SNAPSHOT_MODES,
   type ChoiceReport,
   type IdentifyRequest,
   type IdentifyResponse,
@@ -98,7 +99,8 @@ export function createApp({ footprintSource, labelSource, dop, requestLogDir, we
     app.use("*", serveStatic({ root: webRoot }));
     // A missing asset is a stale file name, not a page of the app: never answer it with index.html.
     app.all("/assets/*", (c) => c.body(null, 404));
-    // Any other path is the app itself, which reads its mode from the query string.
+    // Any other path is the app itself, which reads its mode from the query string, or a demo
+    // Snapshot from the path (see the PWA's demo-path.ts).
     app.get("*", serveStatic({ root: webRoot, path: "index.html" }));
   }
   return app;
@@ -137,7 +139,7 @@ function asIdentifyRequest(body: unknown): IdentifyRequest | undefined {
     !isNumber(snapshot.heading) ||
     !isNumber(snapshot.accuracyMetres) ||
     !COMPASS_CALIBRATIONS.includes(compassCalibration) ||
-    (request.mode !== "phone" && request.mode !== "dev")
+    !(SNAPSHOT_MODES as readonly unknown[]).includes(request.mode)
   ) {
     return undefined;
   }

@@ -18,6 +18,15 @@ export function streetViewUrl(from: LatLng, towards: LatLng): string {
   return `https://www.google.com/maps/@?${params.toString().replace(/%2C/g, ",")}`;
 }
 
+/**
+ * Google Maps' key-free URL that opens a pin at the position: on a phone in the Google Maps app,
+ * elsewhere in the browser. For desktops, where the geo: URI of a Location opens nothing.
+ */
+export function mapsPinUrl({ lat, lon }: LatLng): string {
+  const params = new URLSearchParams({ api: "1", query: `${degrees(lat)},${degrees(lon)}` });
+  return `https://www.google.com/maps/search/?${params.toString().replace(/%2C/g, ",")}`;
+}
+
 function degrees(value: number): string {
   return String(Number(value.toFixed(DECIMAL_PLACES)));
 }

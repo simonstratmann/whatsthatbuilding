@@ -1,7 +1,7 @@
 import type { Candidate } from "@whatisthatbuilding/shared";
 import { showCandidateScreen, type CandidateScreen } from "./candidate-screen.ts";
 import { logChoice, type IdentifyAttempt } from "./identify-client.ts";
-import { streetViewUrl } from "./street-view-link.ts";
+import { mapsPinUrl, streetViewUrl } from "./google-maps-links.ts";
 
 export interface IdentificationScreenOptions {
   /** Class of the element the Candidates or the error go in. */
@@ -12,17 +12,22 @@ export interface IdentificationScreenOptions {
   onRetry?: () => void;
   /** Back to the viewfinder for another Snapshot; offered on every outcome. */
   onBack?: () => void;
+  /**
+   * Whether choosing a Candidate opens its Location in the maps app at once (the default), or
+   * only offers a link to it, as a demo on any device does.
+   */
+  openMapsOnChoose?: boolean;
 }
 
 /**
  * What a Snapshot led to, on the phone and in dev mode alike: its request ID, then the
  * Candidates or why there are none. Choosing a Candidate logs the choice, opens its
- * Location in the maps app, and offers a link to Street View facing it.
+ * Location in the maps app (or offers a link to it), and offers a link to Street View facing it.
  */
 export function showIdentificationScreen(
   container: HTMLElement,
   attempt: IdentifyAttempt,
-  { className, onChoose, onRetry, onBack }: IdentificationScreenOptions = {},
+  { className, onChoose, onRetry, onBack, openMapsOnChoose = true }: IdentificationScreenOptions = {},
 ): CandidateScreen {
   container.innerHTML = "";
   if (attempt.requestId) container.append(requestIdLine(attempt.requestId));
@@ -46,11 +51,17 @@ export function showIdentificationScreen(
   const handOff = document.createElement("p");
   handOff.className = "hand-off";
   handOff.hidden = true;
-  const streetView = document.createElement("a");
-  streetView.textContent = "Street View";
-  // Outside the app, never in place of it.
-  streetView.target = "_blank";
-  streetView.rel = "noopener";
+  const outsideLink = (text: string) => {
+    const link = document.createElement("a");
+    link.textContent = text;
+    // Outside the app, never in place of it.
+    link.target = "_blank";
+    link.rel = "noopener";
+    return link;
+  };
+  const maps = outsideLink("Open in maps");
+  const streetView = outsideLink("Street View");
+  if (!openMapsOnChoose) handOff.append(maps);
   handOff.append(streetView);
 
   const candidateScreen = showCandidateScreen(screen, identification, (candidate) => {
@@ -58,9 +69,10 @@ export function showIdentificationScreen(
     onChoose?.(candidate);
     streetView.href = streetViewUrl(identification.lineOfSight.from, candidate.footprint.centre);
     streetView.setAttribute("aria-label", `Street View facing Candidate ${candidate.number}`);
+    maps.href = mapsPinUrl(candidate.location.position);
     handOff.hidden = false;
     // On a desktop browser this may ask which app should open it.
-    window.location.href = candidate.location.geoUri;
+    if (openMapsOnChoose) window.location.href = candidate.location.geoUri;
   });
   screen.append(handOff);
   const backLabel = identification.candidates.length > 0 ? "None of these: back" : "Take another Snapshot";

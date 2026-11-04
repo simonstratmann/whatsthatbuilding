@@ -39,10 +39,14 @@ export interface OrientationReading {
   gamma: number | null;
 }
 
+export type SnapshotMode = "phone" | "dev" | "demo";
+
+export const SNAPSHOT_MODES: readonly SnapshotMode[] = ["phone", "dev", "demo"];
+
 export interface IdentifyRequest {
   snapshot: Snapshot;
-  /** Where the Snapshot was taken: on the phone, or in dev mode at a desk. */
-  mode: "phone" | "dev";
+  /** Where the Snapshot was taken: on the phone, in dev mode at a desk, or from a demo link. */
+  mode: SnapshotMode;
   /** The raw absolute-orientation reading the heading came from (phone only), for the request log. */
   orientation?: OrientationReading;
 }

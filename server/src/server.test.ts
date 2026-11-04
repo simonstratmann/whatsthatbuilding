@@ -201,6 +201,16 @@ describe("POST /api/identify", () => {
     expect(badCalibration.status).toBe(400);
   });
 
+  it("takes a Snapshot from a demo link, and refuses an unknown mode", async () => {
+    const url = await start(sourceOf(TOWN_HALL));
+
+    const demo = await post(`${url}/api/identify`, { ...facingNorth, mode: "demo" });
+    const unknown = await post(`${url}/api/identify`, { ...facingNorth, mode: "tablet" });
+
+    expect(demo.status).toBe(200);
+    expect(unknown.status).toBe(400);
+  });
+
   it("takes a Snapshot from an older page without a compass-calibration state as unknown", async () => {
     const dir = await mkdtemp(join(tmpdir(), "server-request-log-"));
     const url = await start(sourceOf(), dir);
