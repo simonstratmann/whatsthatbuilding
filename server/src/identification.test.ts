@@ -64,6 +64,21 @@ describe("identify", () => {
     expect(candidates.map((c) => c.footprint.id)).toEqual(["inside"]);
   });
 
+  it("leaves out buildings nearer than 20 m, as if they weren't there", async () => {
+    // A kiosk 10 m ahead hides the house behind it, and one the GPS puts the user inside.
+    const kiosk = building("kiosk", -10, 10, 10, 15, { heightMetres: 30 });
+    const standingIn = building("standing in", -3, -3, 3, 3, { heightMetres: 12 });
+    const beside = building("beside", 8, 8, 12, 12, { heightMetres: 12 });
+    const house = building("house", -5, 40, 5, 50, { heightMetres: 8 });
+    // 23 m away, about 26° to the right: outside the Sight Cone, inside the Sight View.
+    const justFarEnough = building("just far enough", 10, 20.5, 15, 25);
+
+    const { candidates, surroundings } = await identify(facing(0), sourceOf(kiosk, standingIn, beside, house, justFarEnough));
+
+    expect(candidates.map((c) => [c.footprint.id, c.hidden])).toEqual([["house", false]]);
+    expect(surroundings.map((s) => s.footprintId)).toEqual(["just far enough"]);
+  });
+
   it("leaves out a building beyond the reach of the Sight Cone", async () => {
     const near = building("near", -5, 480, 5, 490);
     const far = building("far", -5, 510, 5, 520);
@@ -224,12 +239,13 @@ describe("identify", () => {
     expect(candidates.map((c) => c.footprint.id).sort()).toEqual(expected);
   });
 
-  it("offers the building the user is standing in, at 0 m", async () => {
+  it("leaves out the building the user is standing in", async () => {
     const arcade = building("arcade", -20, -20, 20, 20);
 
-    const { candidates } = await identify(facing(90), sourceOf(arcade));
+    const { candidates, surroundings } = await identify(facing(90), sourceOf(arcade));
 
-    expect(candidates.map((c) => [c.footprint.id, c.distanceMetres])).toEqual([["arcade", 0]]);
+    expect(candidates).toEqual([]);
+    expect(surroundings).toEqual([]);
   });
 
   it("leaves out a building behind the user even when one of its corners is exactly where they stand", async () => {
@@ -240,13 +256,13 @@ describe("identify", () => {
     expect(candidates).toEqual([]);
   });
 
-  it("offers a building whose wall the user stands exactly on, when it fills the Sight Cone", async () => {
+  it("leaves out a building whose wall the user stands exactly on", async () => {
     // A vast hall to the south; the user stands on its north wall, facing into it.
     const hall = building("hall", -1000, -1000, 1000, 0);
 
     const { candidates } = await identify(facing(180), sourceOf(hall));
 
-    expect(candidates.map((c) => [c.footprint.id, c.distanceMetres])).toEqual([["hall", 0]]);
+    expect(candidates).toEqual([]);
   });
 
   it.each([

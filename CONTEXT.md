@@ -21,7 +21,7 @@ _Avoid_: Ray, bearing line, view direction
 ### Identifying
 
 **Sight Cone**:
-The wedge-shaped area around the Line of Sight, limited in angle and distance, in which buildings are considered. It absorbs compass inaccuracy and includes buildings hidden behind nearer ones.
+The wedge-shaped area around the Line of Sight, limited in angle and distance, in which buildings are considered. It absorbs compass inaccuracy and includes buildings hidden behind nearer ones. It starts 20 m out: buildings nearer than that are left out altogether (not offered, not drawn, hiding nothing), since the one the user stands in front of is easy to find on any map; the app is for those farther off.
 _Avoid_: Search area, field of view, radius
 
 **Footprint**:

@@ -43,6 +43,11 @@ export interface Names {
 export const NO_NAMES: LabelSource = { namesAround: async () => ({ nameOf: () => undefined }) };
 
 const SIGHT_CONE_RANGE_METRES = 500;
+/**
+ * Buildings nearer than this are left out altogether: the user can find the one they stand in
+ * front of on any map. The app is for those farther off.
+ */
+const NEAREST_METRES = 20;
 const SIGHT_CONE_HALF_ANGLE_DEGREES = 15;
 /** The Sight View's half-width: buildings this far either side of the heading can be drawn. */
 const SIGHT_VIEW_HALF_ANGLE_DEGREES = 30;
@@ -88,12 +93,14 @@ export async function identify(
   const cone = wedgeOverlapTest(snapshot.heading, SIGHT_CONE_HALF_ANGLE_DEGREES);
   const view = wedgeOverlapTest(snapshot.heading, SIGHT_VIEW_HALF_ANGLE_DEGREES);
 
+  // As if buildings nearer than NEAREST_METRES weren't there: they are neither offered nor drawn,
+  // and hide nothing.
   const inView = footprints
     .map((footprint) => ({ footprint, rings: footprint.rings.map((ring) => ring.map(toLocal)) }))
-    .filter(({ rings }) => rings.some((ring) => view.overlaps(ring)));
-  const inCone = inView
-    .filter(({ rings }) => rings.some((ring) => cone.overlaps(ring)))
-    .map((found) => ({ ...found, distanceMetres: distanceToRings(found.rings) }));
+    .filter(({ rings }) => rings.some((ring) => view.overlaps(ring)))
+    .map((found) => ({ ...found, distanceMetres: distanceToRings(found.rings) }))
+    .filter(({ distanceMetres }) => distanceMetres >= NEAREST_METRES);
+  const inCone = inView.filter(({ rings }) => rings.some((ring) => cone.overlaps(ring)));
   const isHidden = hiddenTest(inCone, snapshot.heading);
 
   const ranked = inCone
@@ -104,10 +111,7 @@ export async function identify(
   const isCandidate = new Set(ranked.map(({ footprint }) => footprint.id));
   // In a city centre most buildings in the Sight View hide behind nearer ones; drawing them
   // would change nothing but the size of the response.
-  const isSeen = seenInSightView(
-    inView.map((found) => ({ ...found, distanceMetres: distanceToRings(found.rings) })),
-    snapshot.heading,
-  );
+  const isSeen = seenInSightView(inView, snapshot.heading);
   const others = inView.filter(({ footprint }) => !isCandidate.has(footprint.id) && isSeen(footprint));
   // Shells make up most of the response: at Kröpcke in Hannover (8 Candidates, among them the
   // Kröpcke-Center and the Marktkirche, and 6 Surroundings) it came to 104 KB, 17 KB gzipped
@@ -225,11 +229,11 @@ interface FootprintInCone {
   distanceMetres: number;
 }
 
-/** One that can hide others and be hidden: of known height, and not where the user stands. */
+/** One that can hide others and be hidden: of known height. */
 type Obstacle = FootprintInCone & { footprint: { heightMetres: number } };
 
 function isObstacle(inCone: FootprintInCone): inCone is Obstacle {
-  return inCone.footprint.heightMetres !== undefined && inCone.distanceMetres > 0;
+  return inCone.footprint.heightMetres !== undefined;
 }
 
 const EYE_HEIGHT_METRES = 1.6;
@@ -242,8 +246,8 @@ const MIN_BEARINGS = 9;
  * Tells Hidden Candidates: seen from eye height at the user's position, a Footprint is hidden when
  * along every bearing that meets it within the Sight Cone, a nearer Footprint rises to a higher
  * elevation angle than its top. Heights are above each building's own ground, so the ground counts
- * as flat. Footprints of unknown height are never hidden and hide nothing, nor does one the user
- * stands in. A gap between two nearer Footprints narrower than the spacing of the bearings can be missed.
+ * as flat. Footprints of unknown height are never hidden and hide nothing. A gap between two
+ * nearer Footprints narrower than the spacing of the bearings can be missed.
  */
 function hiddenTest(inCone: FootprintInCone[], heading: number): (target: FootprintInCone) => boolean {
   const obstacles = inCone.filter(isObstacle);
@@ -275,8 +279,7 @@ const SIGHT_VIEW_SWEEP_DEGREES = 0.25;
  * Tells which Footprints show in the Sight View: sweeping bearings across it, a Footprint shows
  * when along one of them it rises above everything nearer, from eye height. As with Hidden
  * Candidates, heights are above each building's own ground; one of unknown height always shows
- * and hides nothing, nor does one the user stands in. One too narrow for any bearing to meet
- * doesn't show.
+ * and hides nothing. One too narrow for any bearing to meet doesn't show.
  */
 function seenInSightView(inView: FootprintInCone[], heading: number): (footprint: Footprint) => boolean {
   const seen = new Set<Footprint>();
