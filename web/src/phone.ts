@@ -1,5 +1,6 @@
-import { identifyOnServer } from "./identify-client.ts";
+import { CANCELLED, identifyOnServer } from "./identify-client.ts";
 import { showIdentificationScreen } from "./identification-screen.ts";
+import type { TakenSnapshot } from "./sensors.ts";
 import { showViewfinder } from "./viewfinder.ts";
 
 /**
@@ -31,11 +32,44 @@ function showIntro(app: HTMLElement): void {
 }
 
 function startViewfinder(app: HTMLElement): void {
-  const viewfinder = showViewfinder(app, async ({ snapshot, orientation }) => {
+  const viewfinder = showViewfinder(app, (taken) => {
     viewfinder.destroy();
-    app.innerHTML = `<p class="notice">Looking for buildings…</p>`;
-    const attempt = await identifyOnServer(snapshot, "phone", orientation);
-    showIdentificationScreen(app, attempt, { className: "candidate-screen" });
+    void identifyAndShow(app, taken);
+  });
+}
+
+/**
+ * Sends the Snapshot and shows what came of it. While waiting, which can take a while in a part
+ * of Niedersachsen the app hasn't seen yet, the user can cancel back to the viewfinder.
+ */
+async function identifyAndShow(app: HTMLElement, taken: TakenSnapshot): Promise<void> {
+  const cancel = new AbortController();
+  app.innerHTML = `
+    <div class="loading">
+      <p class="notice">Looking for buildings…</p>
+      <div class="actions"><button type="button">Cancel</button></div>
+    </div>`;
+  app.querySelector<HTMLButtonElement>(".loading button")!.addEventListener(
+    "click",
+    () => {
+      cancel.abort();
+      startViewfinder(app);
+    },
+    { once: true },
+  );
+
+  const attempt = await identifyOnServer(taken.snapshot, "phone", taken.orientation, cancel.signal);
+  if (attempt === CANCELLED || cancel.signal.aborted) return;
+  const screen = showIdentificationScreen(app, attempt, {
+    className: "candidate-screen",
+    onRetry: () => {
+      screen.destroy();
+      void identifyAndShow(app, taken);
+    },
+    onBack: () => {
+      screen.destroy();
+      startViewfinder(app);
+    },
   });
 }
 

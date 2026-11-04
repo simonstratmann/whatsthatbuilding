@@ -2,6 +2,13 @@
 html, body, #app { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
 
 .notice { padding: 1rem; }
+.notice.warning { margin: 0.75rem 0 0; padding: 0.6rem 0.75rem; background: #fff4d6; border-left: 4px solid #f0a800; border-radius: 4px; }
+.actions { display: flex; gap: 0.5rem; padding: 0 1rem 1rem; }
+.error-detail { margin: 0 1rem 1rem; font-size: 0.85rem; color: #555; }
+.actions:empty { display: none; }
+.dev-panel .actions { padding: 0.75rem 0 0; }
+.dev-panel .simulate { display: block; margin-bottom: 0.5rem; color: #555; }
+.actions button { flex: 1; padding: 0.75rem; font-size: 1rem; }
 
 .dev-mode { display: flex; height: 100%; }
 .dev-map { flex: 1; }

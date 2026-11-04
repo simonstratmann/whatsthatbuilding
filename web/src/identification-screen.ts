@@ -7,6 +7,10 @@ export interface IdentificationScreenOptions {
   className?: string;
   /** Called when the user chooses a Candidate, just before its Location goes to the maps app. */
   onChoose?: (candidate: Candidate) => void;
+  /** Sends the same Snapshot again; offered when the server couldn't be asked or failed. */
+  onRetry?: () => void;
+  /** Back to the viewfinder for another Snapshot; offered on every outcome. */
+  onBack?: () => void;
 }
 
 /**
@@ -17,7 +21,7 @@ export interface IdentificationScreenOptions {
 export function showIdentificationScreen(
   container: HTMLElement,
   attempt: IdentifyAttempt,
-  { className, onChoose }: IdentificationScreenOptions = {},
+  { className, onChoose, onRetry, onBack }: IdentificationScreenOptions = {},
 ): CandidateScreen {
   container.innerHTML = "";
   if (attempt.requestId) container.append(requestIdLine(attempt.requestId));
@@ -28,17 +32,41 @@ export function showIdentificationScreen(
   if ("error" in attempt) {
     const notice = document.createElement("p");
     notice.className = "notice";
-    notice.textContent = `Couldn't fetch map data: ${attempt.error}`;
-    screen.append(notice);
+    notice.textContent = "Couldn't fetch map data. That's not your aim: check your signal and try again.";
+    // The reason as the browser or server gave it, for reporting a test.
+    const detail = document.createElement("p");
+    detail.className = "error-detail";
+    detail.textContent = attempt.error;
+    screen.append(notice, detail);
+    container.append(actions([onRetry && ["Try again", onRetry], onBack && ["Back", onBack]]));
     return { destroy() {} };
   }
-  const { requestId } = attempt;
-  return showCandidateScreen(screen, attempt.identification, (candidate) => {
+  const { requestId, identification } = attempt;
+  const candidateScreen = showCandidateScreen(screen, identification, (candidate) => {
     logChoice(requestId, candidate);
     onChoose?.(candidate);
     // On a desktop browser this may ask which app should open it.
     window.location.href = candidate.location.geoUri;
   });
+  const backLabel = identification.candidates.length > 0 ? "None of these: back" : "Take another Snapshot";
+  container.append(actions([onBack && [backLabel, onBack]]));
+  return candidateScreen;
+}
+
+/** A row of buttons, leaving out those not offered. */
+function actions(buttons: ([label: string, onClick: () => void] | undefined)[]): HTMLElement {
+  const row = document.createElement("div");
+  row.className = "actions";
+  for (const button of buttons) {
+    if (!button) continue;
+    const [label, onClick] = button;
+    const element = document.createElement("button");
+    element.type = "button";
+    element.textContent = label;
+    element.addEventListener("click", onClick, { once: true });
+    row.append(element);
+  }
+  return row;
 }
 
 /** "Request <id>", selectable, so a test on the phone can be named when reporting what went wrong. */

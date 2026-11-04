@@ -8,6 +8,7 @@ import {
   ringContains,
   type Footprint,
   type Identification,
+  type IdentificationWarning,
   type LatLng,
   type Location,
   type Point,
@@ -40,6 +41,8 @@ const SIGHT_CONE_HALF_ANGLE_DEGREES = 15;
 const MAX_CANDIDATES = 8;
 const USER: Point = { x: 0, y: 0 };
 const SIGHT_CONE_ARC_STEPS = 12;
+/** GPS accuracy worse than this makes the list worth doubting; a starting value to tune after real walks. */
+const IMPRECISE_LOCATION_METRES = 30;
 
 /**
  * The Candidates for a Snapshot. Names are a nicety: when the Label source fails, Candidates
@@ -99,7 +102,16 @@ export async function identify(
         ...(buildingType ? { buildingType } : {}),
       };
     });
-  return { candidates, warnings: [], ...searched };
+  return { candidates, warnings: warningsFor(snapshot, candidates.length), ...searched };
+}
+
+/** What the user should know about a Snapshot inside the Coverage Area, in the order to say it. */
+function warningsFor({ accuracyMetres, compassCalibration }: Snapshot, candidateCount: number): IdentificationWarning[] {
+  const warnings: IdentificationWarning[] = [];
+  if (accuracyMetres > IMPRECISE_LOCATION_METRES) warnings.push("imprecise-location");
+  if (compassCalibration === "uncalibrated") warnings.push("compass-uncalibrated");
+  if (candidateCount === 0) warnings.push("nothing-found");
+  return warnings;
 }
 
 const GEO_URI_DECIMAL_PLACES = 7;

@@ -1,7 +1,7 @@
 import L from "leaflet";
 import type { CandidateScreen } from "./candidate-screen.ts";
 import { bearing, destination, type LatLng } from "@whatisthatbuilding/shared";
-import { identifyOnServer } from "./identify-client.ts";
+import { CANCELLED, identifyOnServer } from "./identify-client.ts";
 import { addOsmTiles, fromLeaflet, toLeaflet } from "./leaflet-map.ts";
 import { showIdentificationScreen } from "./identification-screen.ts";
 
@@ -19,6 +19,8 @@ export function startDevMode(app: HTMLElement): void {
       <aside class="dev-panel">
         <p class="hint">Click the map to stand somewhere. Drag the arrow to face a building.</p>
         <p class="reading" id="reading"></p>
+        <label class="simulate"><input type="checkbox" id="imprecise"> Imprecise position (±50 m)</label>
+        <label class="simulate"><input type="checkbox" id="uncalibrated"> Uncalibrated compass</label>
         <button id="snapshot" type="button">Take Snapshot</button>
         <div id="candidates"></div>
         <p class="chosen-reading" id="chosen"></p>
@@ -32,6 +34,7 @@ export function startDevMode(app: HTMLElement): void {
   const candidateArea = app.querySelector<HTMLElement>("#candidates")!;
   const chosenReading = app.querySelector<HTMLElement>("#chosen")!;
   const button = app.querySelector<HTMLButtonElement>("#snapshot")!;
+  const simulated = (id: string) => app.querySelector<HTMLInputElement>(`#${id}`)!.checked;
 
   let position = START;
   let heading = 0;
@@ -68,16 +71,24 @@ export function startDevMode(app: HTMLElement): void {
     candidateScreen = undefined;
     chosenReading.textContent = "";
     candidateArea.innerHTML = `<p class="notice">Looking for buildings…</p>`;
-    // The heading set by dragging is exact, as a calibrated compass would give it.
+    // The position and heading set on the map are exact, as a good GPS fix and a calibrated
+    // compass would give them, unless a poor reading is simulated.
     const attempt = await identifyOnServer(
-      { position, heading, accuracyMetres: 0, compassCalibration: "calibrated" },
+      {
+        position,
+        heading,
+        accuracyMetres: simulated("imprecise") ? 50 : 0,
+        compassCalibration: simulated("uncalibrated") ? "uncalibrated" : "calibrated",
+      },
       "dev",
     );
     button.disabled = false;
+    if (attempt === CANCELLED) return;
     candidateScreen = showIdentificationScreen(candidateArea, attempt, {
       onChoose: (candidate) => {
         chosenReading.textContent = `Chose Candidate ${candidate.number} (${candidate.footprint.id}): ${candidate.location.geoUri}`;
       },
+      onRetry: () => button.click(),
     });
   });
 

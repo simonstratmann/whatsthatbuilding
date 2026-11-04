@@ -1,6 +1,7 @@
 import L from "leaflet";
 import type { Candidate, Identification } from "@whatisthatbuilding/shared";
 import { candidateEntryText } from "./candidate-entry.ts";
+import { noticesFor } from "./identification-notices.ts";
 import { addBaseLayers, addBuildingDataCredit, toLeaflet } from "./leaflet-map.ts";
 
 const FIT_PADDING_PIXELS = 24;
@@ -20,16 +21,16 @@ export function showCandidateScreen(
   { candidates, warnings, sightCone, lineOfSight }: Identification,
   onChoose: (candidate: Candidate) => void,
 ): CandidateScreen {
-  if (warnings.includes("outside-coverage-area")) {
-    container.innerHTML = `<p class="notice">No building data here.</p>`;
-    return { destroy() {} };
+  container.innerHTML = "";
+  for (const text of noticesFor(warnings)) {
+    const notice = document.createElement("p");
+    notice.className = "notice warning";
+    notice.textContent = text;
+    container.append(notice);
   }
-  if (candidates.length === 0) {
-    container.innerHTML = `<p class="notice">No buildings found in the Sight Cone.</p>`;
-    return { destroy() {} };
-  }
+  if (candidates.length === 0) return { destroy() {} };
 
-  container.innerHTML = `<div class="mini-map"></div><ol class="candidates"></ol>`;
+  container.insertAdjacentHTML("beforeend", `<div class="mini-map"></div><ol class="candidates"></ol>`);
   const list = container.querySelector<HTMLOListElement>(".candidates")!;
   const map = L.map(container.querySelector<HTMLElement>(".mini-map")!, { zoomSnap: 0.25 });
   addBaseLayers(map);

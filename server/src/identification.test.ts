@@ -335,10 +335,50 @@ describe("identify", () => {
     expect(candidates[0]?.location.geoUri).toBe("geo:52.5209,13.405?q=52.5209,13.405");
   });
 
-  it("gives no warnings for a Snapshot inside the Coverage Area", async () => {
+  it("gives no warnings for a precise Snapshot with a calibrated compass that finds a building", async () => {
     const { warnings } = await identify(facing(0), sourceOf(building("shop", -10, 90, 10, 110)));
 
     expect(warnings).toEqual([]);
+  });
+
+  it("warns that the position is imprecise when GPS accuracy is worse than 30 m, and still offers the Candidates", async () => {
+    const shop = building("shop", -10, 90, 10, 110);
+
+    const atThirty = await identify({ ...facing(0), accuracyMetres: 30 }, sourceOf(shop));
+    const beyond = await identify({ ...facing(0), accuracyMetres: 31 }, sourceOf(shop));
+
+    expect(atThirty.warnings).toEqual([]);
+    expect(beyond.warnings).toEqual(["imprecise-location"]);
+    expect(beyond.candidates.map((c) => c.footprint.id)).toEqual(["shop"]);
+  });
+
+  it("asks for the compass to be calibrated when the platform says it isn't, but not when it can't tell", async () => {
+    const shop = building("shop", -10, 90, 10, 110);
+
+    const uncalibrated = await identify({ ...facing(0), compassCalibration: "uncalibrated" }, sourceOf(shop));
+    const unknown = await identify({ ...facing(0), compassCalibration: "unknown" }, sourceOf(shop));
+
+    expect(uncalibrated.warnings).toEqual(["compass-uncalibrated"]);
+    expect(uncalibrated.candidates).toHaveLength(1);
+    expect(unknown.warnings).toEqual([]);
+  });
+
+  it("warns that nothing was found when no building falls in the Sight Cone", async () => {
+    const behind = building("behind", -10, -110, 10, -90);
+
+    const { candidates, warnings } = await identify(facing(0), sourceOf(behind));
+
+    expect(candidates).toEqual([]);
+    expect(warnings).toEqual(["nothing-found"]);
+  });
+
+  it("gives every warning that applies, so an empty list can be put down to a poor reading", async () => {
+    const { warnings } = await identify(
+      { ...facing(0), accuracyMetres: 80, compassCalibration: "uncalibrated" },
+      sourceOf(),
+    );
+
+    expect(warnings).toEqual(["imprecise-location", "compass-uncalibrated", "nothing-found"]);
   });
 
   it("warns that a Snapshot outside the Coverage Area has no building data, and offers no Candidates", async () => {

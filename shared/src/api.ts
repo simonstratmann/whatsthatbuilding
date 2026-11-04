@@ -100,10 +100,14 @@ export interface Candidate {
 }
 
 /**
- * Something the user should know about an Identification. "outside-coverage-area": the
- * Snapshot was taken where the app has no building data, so there are no Candidates.
+ * Something the user should know about an Identification; none of them hides the Candidates.
+ * - "outside-coverage-area": the Snapshot was taken where the app has no building data, so
+ *   there are no Candidates (and no other warnings).
+ * - "imprecise-location": the GPS fix was too rough to trust the list.
+ * - "compass-uncalibrated": the platform says the compass needs calibrating.
+ * - "nothing-found": no building lies in the Sight Cone.
  */
-export type IdentificationWarning = "outside-coverage-area";
+export type IdentificationWarning = "outside-coverage-area" | "imprecise-location" | "compass-uncalibrated" | "nothing-found";
 
 export interface Identification {
   candidates: Candidate[];
