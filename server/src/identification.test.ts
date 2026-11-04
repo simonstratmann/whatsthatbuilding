@@ -126,7 +126,11 @@ describe("identify", () => {
 
     const { candidates } = await identify(facing(0), sourceOf(hidden, shed, shop));
 
-    expect(candidates.map((c) => c.footprint.id)).toEqual(["shop", "shed", "hidden"]);
+    expect(candidates.map((c) => [c.footprint.id, c.hidden])).toEqual([
+      ["shop", false],
+      ["shed", false],
+      ["hidden", true],
+    ]);
   });
 
   it("counts a building as visible when only one edge of its span in the Sight Cone is hidden", async () => {

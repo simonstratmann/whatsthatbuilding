@@ -119,7 +119,7 @@ export async function identify(
   };
 
   const candidates = ranked.map((found, index) => {
-    const { footprint, distanceMetres } = found;
+    const { footprint, distanceMetres, hidden } = found;
     const name = names?.nameOf(footprint);
     const withName = name ? { ...footprint, name } : footprint;
     const buildingType = footprint.functionCode ? buildingTypeOf(footprint.functionCode) : undefined;
@@ -127,6 +127,7 @@ export async function identify(
       number: index + 1,
       footprint: withName,
       shell: shellOf(found),
+      hidden,
       distanceMetres,
       location: locationOf(withName),
       ...(buildingType ? { buildingType } : {}),

@@ -41,6 +41,9 @@ html, body, #app { margin: 0; height: 100%; font-family: system-ui, sans-serif; 
 .sight-view .candidate.roof { fill: #b35f00; }
 .sight-view .candidate.wall.chosen { fill: #5a9cf0; }
 .sight-view .candidate.roof.chosen { fill: #0b4fae; }
+/* Transparent rather than none, so a tap on the outline's inside still chooses it. */
+.sight-view .candidate.hidden-outline { fill: transparent; stroke: #b35f00; stroke-opacity: 0.9; stroke-width: 1.5; stroke-dasharray: 5 4; }
+.sight-view .candidate.hidden-outline.chosen { fill: transparent; stroke: #0b4fae; stroke-width: 2; }
 .sight-view .surroundings.wall { fill: #c4c7cc; }
 .sight-view .surroundings.roof { fill: #8d9299; }
 .sight-view .line-of-sight, .sight-view .sight-cone-edge { stroke: #d33; stroke-opacity: 0.5; stroke-width: 1.5; vector-effect: non-scaling-stroke; pointer-events: none; }

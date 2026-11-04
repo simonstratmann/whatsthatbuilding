@@ -19,6 +19,11 @@ export interface SightPolygon {
   /** The Candidate's number, as in the list; absent for the Surroundings. */
   number?: number;
   chosen: boolean;
+  /**
+   * A Hidden Candidate's surface again, drawn as a dashed outline over whatever stands in front
+   * of it. Its filled surfaces are in the list too, in their place.
+   */
+  hidden: boolean;
 }
 
 /** Where a Candidate's number goes: above its highest point. */
@@ -33,7 +38,10 @@ export interface SightNumber {
 export interface SightView {
   width: number;
   height: number;
-  /** Back to front: farther buildings first, and within a building its farther surfaces first. */
+  /**
+   * Back to front: farther buildings first, and within a building its farther surfaces first;
+   * then the Hidden Candidates' outlines.
+   */
   polygons: SightPolygon[];
   /** In rank order; a Candidate with nothing in view has none. */
   numbers: SightNumber[];
@@ -49,8 +57,13 @@ const EYE_HEIGHT_METRES = 1.6;
 /** Surfaces are cut this close in front of the eye; nearer, the perspective blows up. */
 const NEAR_METRES = 0.3;
 const WIDTH = 1000;
-/** A very near or very tall building would make the view a tall sliver; above this, its foot is cut. */
+/**
+ * A very near or very tall building would make the view a tall sliver; above this height, the
+ * frame is cut. It keeps the horizon, where the distant buildings stand, and at most
+ * BELOW_HORIZON of its height under it; the top of the near building goes first.
+ */
 const MAX_HEIGHT = WIDTH * 0.85;
+const BELOW_HORIZON = MAX_HEIGHT * 0.3;
 /** Room above the highest point for the numbers. */
 const HEADROOM = 110;
 /** How far above a Candidate's highest point its number sits. */
@@ -97,36 +110,43 @@ export function sightView({ candidates, surroundings, lineOfSight }: Identificat
     up: up - EYE_HEIGHT_METRES,
   });
 
-  const project = (shell: BuildingShell, number?: number) => ({
+  const project = (shell: BuildingShell, number?: number, hidden = false) => ({
     number,
+    hidden,
     distance: groundDistance(shell),
     surfaces: projectShell(shell, toEye),
   });
   const buildings = [
-    ...candidates.map(({ shell, number }) => project(shell, number)),
+    ...candidates.map(({ shell, number, hidden }) => project(shell, number, hidden)),
     ...surroundings.map(({ shell }) => project(shell)),
   ].filter(({ surfaces }) => surfaces.length > 0);
 
   const all = buildings.flatMap(({ surfaces }) => surfaces.flatMap(({ points }) => points));
-  // The frame in tangent space, y upwards: from the lowest point drawn to above the highest.
-  const highest = all.length > 0 ? Math.max(...all.map((p) => p.y)) : 0;
-  const lowest = all.length > 0 ? Math.min(...all.map((p) => p.y)) : -EMPTY_HEIGHT / SCALE;
-  const top = highest * SCALE + HEADROOM;
-  const height = Math.min(top - lowest * SCALE, MAX_HEIGHT);
+  // The frame in view units, y upwards from the horizon: from the lowest point drawn to above
+  // the highest, unless that makes it too tall.
+  const highest = all.length > 0 ? Math.max(...all.map((p) => p.y)) * SCALE : 0;
+  const lowest = all.length > 0 ? Math.min(...all.map((p) => p.y)) * SCALE : -EMPTY_HEIGHT;
+  const tooTall = highest + HEADROOM - lowest > MAX_HEIGHT;
+  const bottom = tooTall ? Math.max(lowest, -BELOW_HORIZON) : lowest;
+  const top = tooTall ? bottom + MAX_HEIGHT : highest + HEADROOM;
+  const height = top - bottom;
   const toView = ({ x, y }: Flat): ViewPoint => [WIDTH / 2 + x * SCALE, top - y * SCALE];
 
   const polygons: SightPolygon[] = [];
   const numbers: SightNumber[] = [];
-  // Farthest building first; within one, its farthest surface first.
-  for (const { number, surfaces } of [...buildings].sort((a, b) => b.distance - a.distance)) {
-    for (const { points, surface } of [...surfaces].sort((a, b) => b.distance - a.distance)) {
-      polygons.push(
+  const polygonsOf = (number: number | undefined, surfaces: ProjectedSurface[], hidden: boolean): SightPolygon[] =>
+    // Within a building, its farthest surface first.
+    [...surfaces]
+      .sort((a, b) => b.distance - a.distance)
+      .map(({ points, surface }) =>
         number === undefined
-          ? { points: points.map(toView), surface, role: "surroundings", chosen: false }
-          : { points: points.map(toView), surface, role: "candidate", number, chosen: number === chosen },
+          ? { points: points.map(toView), surface, role: "surroundings", chosen: false, hidden }
+          : { points: points.map(toView), surface, role: "candidate", number, chosen: number === chosen, hidden },
       );
-    }
-  }
+  // Farthest building first, then the Hidden Candidates again, on top of everything.
+  const byDistance = [...buildings].sort((a, b) => b.distance - a.distance);
+  for (const { number, surfaces } of byDistance) polygons.push(...polygonsOf(number, surfaces, false));
+  for (const { number, surfaces, hidden } of byDistance) if (hidden) polygons.push(...polygonsOf(number, surfaces, true));
   for (const { number, surfaces } of buildings) {
     if (number === undefined) continue;
     const highestPoint = surfaces.flatMap(({ points }) => points).reduce((a, b) => (b.y > a.y ? b : a));

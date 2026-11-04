@@ -114,6 +114,8 @@ export interface Candidate {
   footprint: Footprint;
   /** Its real walls and roof when the building model has them, else its Footprint raised to its height. */
   shell: BuildingShell;
+  /** Whether it is a Hidden Candidate: nearer buildings block it completely from the user's eye. */
+  hidden: boolean;
   distanceMetres: number;
   location: Location;
   /** A short German name for what the building is, e.g. "Wohnhaus"; absent when the building model doesn't say. */

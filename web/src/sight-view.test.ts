@@ -39,12 +39,13 @@ function box(bearing: number, distance: number, { width = 10, depth = 10, height
   ];
 }
 
-function candidate(number: number, shell: BuildingShell): Candidate {
+function candidate(number: number, shell: BuildingShell, { hidden = false } = {}): Candidate {
   const centre = USER;
   return {
     number,
     footprint: { id: `b${number}`, rings: [], centre },
     shell,
+    hidden,
     distanceMetres: 0,
     location: { position: centre, geoUri: "geo:0,0" },
   };
@@ -215,6 +216,60 @@ describe("sightView", () => {
 
     const [number] = view.numbers;
     expect(number!.x).toBeGreaterThan(20);
+  });
+
+  it("repeats a Hidden Candidate as outlines after everything else, and no visible Candidate", () => {
+    // A low house hidden behind a tall shop, and a Surroundings building in front of both.
+    const view = sightView(
+      {
+        ...identification(
+          0,
+          candidate(1, box(0, 50, { width: 20, height: 20 })),
+          candidate(2, box(0, 100, { height: 6 }), { hidden: true }),
+        ),
+        surroundings: [surrounding("kiosk", box(-3, 20, { width: 2, height: 3 }))],
+      },
+      2,
+    );
+
+    const outlines = view.polygons.filter((p) => p.hidden);
+    const firstOutline = view.polygons.findIndex((p) => p.hidden);
+    expect(outlines.length).toBeGreaterThan(0);
+    expect(view.polygons.slice(firstOutline).every((p) => p.hidden)).toBe(true);
+    expect(outlines.every((p) => p.role === "candidate" && p.number === 2 && p.chosen)).toBe(true);
+    // Its filled polygons are still there, in their place, behind the shop.
+    const filled = view.polygons.slice(0, firstOutline);
+    expect(filled.some((p) => p.number === 2)).toBe(true);
+    expect(outlines).toHaveLength(filled.filter((p) => p.number === 2).length);
+  });
+
+  it("puts a Hidden Candidate's number above its highest point", () => {
+    const view = sightView(
+      identification(
+        0,
+        candidate(1, box(0, 50, { width: 20, height: 20 })),
+        candidate(2, box(0, 100, { height: 6 }), { hidden: true }),
+      ),
+    );
+
+    const outlinePoints = view.polygons.filter((p) => p.hidden).flatMap((p) => p.points);
+    expect(outlinePoints.length).toBeGreaterThan(0);
+    const top = Math.min(...outlinePoints.map(([, y]) => y));
+    const number = view.numbers.find((n) => n.number === 2);
+    expect(number!.y).toBeLessThan(top);
+  });
+
+  it("keeps the distant buildings in view when a near tall one would make the frame too tall", () => {
+    const view = sightView(
+      identification(0, candidate(1, box(-10, 20, { width: 20, height: 40 })), candidate(2, box(10, 150, { height: 15 }))),
+    );
+
+    const ys = polygonsOf(view, 2).flatMap((p) => p.points.map(([, y]) => y));
+    expect(ys.length).toBeGreaterThan(0);
+    // Its whole height shows, foot and roof.
+    expect(Math.max(...ys)).toBeLessThanOrEqual(view.height);
+    expect(Math.min(...ys)).toBeGreaterThanOrEqual(0);
+    expect(view.height).toBeLessThanOrEqual(view.width);
   });
 
   it("gives the Line of Sight in the middle and the Sight Cone's edges at ±15°", () => {
