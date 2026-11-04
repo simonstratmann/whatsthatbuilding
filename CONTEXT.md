@@ -28,6 +28,10 @@ _Avoid_: Search area, field of view, radius
 A building's outline on the ground, with its height, function and address, taken from the official LoD2 building model of the Coverage Area.
 _Avoid_: Shape, polygon, outline
 
+**Building Shell**:
+A building's wall, roof and ground surfaces in 3D, from the same LoD2 building model as its Footprint. The Sight View draws it.
+_Avoid_: Model, mesh, geometry
+
 **Coverage Area**:
 Where the app has building data: Niedersachsen and Hamburg. A Snapshot outside it gets no Candidates, only a message saying so.
 _Avoid_: Region, supported area
@@ -57,3 +61,11 @@ _Avoid_: Address, place, result
 **Aerial Photo**:
 The orthophoto layer (DOP) the mini-map can show instead of the street map, served by the backend from the LGLN or Hamburg imagery services.
 _Avoid_: Satellite image, orthophoto, DOP
+
+**Sight View**:
+A drawing of the Candidates and their Surroundings as seen from the user's position at the Snapshot, facing their heading, with each Candidate numbered as in the list. It shares the mini-map's box, behind a View | Map toggle.
+_Avoid_: 3D view, render, preview
+
+**Surroundings**:
+Buildings within ±30° of the heading and the Sight Cone's range that aren't Candidates. The Sight View draws them in grey so the user can orient themselves; they can't be chosen.
+_Avoid_: Context, background buildings
