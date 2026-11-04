@@ -137,7 +137,7 @@ describe("identify", () => {
     const shop = building("shop", -6, 40, 6, 50, { heightMetres: 10 });
     const hidden = building("hidden", -5, 60, 5, 70, { heightMetres: 5 });
     // Off to the side of the shop, so nothing stands in front of it.
-    const shed = building("shed", 20, 90, 24, 94, { heightMetres: 3 });
+    const shed = building("shed", 20, 90, 24, 94, { heightMetres: 6 });
 
     const { candidates } = await identify(facing(0), sourceOf(hidden, shed, shop));
 
@@ -161,7 +161,7 @@ describe("identify", () => {
 
   it("treats buildings of unknown height as visible, and as hiding nothing", async () => {
     const unknownShop = building("unknown shop", -20, 40, 20, 50);
-    const behindUnknown = building("behind unknown", -5, 60, 5, 70, { heightMetres: 3 });
+    const behindUnknown = building("behind unknown", -5, 60, 5, 70, { heightMetres: 6 });
     const tallShop = building("tall shop", -20, 150, 20, 160, { heightMetres: 30 });
     const unknownBehindTall = building("unknown behind tall", -5, 200, 5, 210);
     // Shows over the tall shop, so it would rank above the building behind the shop were that hidden.
@@ -205,19 +205,67 @@ describe("identify", () => {
       building(`house-${n}`, -5, n * 30, 5, n * 30 + 10, { heightMetres: 10 * n }),
     );
     // Nearer than all but the first house, and hidden behind it.
-    const shed = building("shed", -2, 45, 2, 50, { heightMetres: 3 });
+    const shed = building("shed", -2, 45, 2, 50, { heightMetres: 6 });
 
     const { candidates } = await identify(facing(0), sourceOf(shed, ...houses));
 
+    // The nearest five, and the three tallest the user can see, nearest first.
     expect(candidates.map((c) => c.footprint.id)).toEqual([
       "house-1",
       "house-2",
       "house-3",
       "house-4",
       "house-5",
-      "house-6",
-      "house-7",
       "house-8",
+      "house-9",
+      "house-10",
+    ]);
+  });
+
+  it("keeps a place for a tall building the user can see behind more than 8 nearer ones", async () => {
+    // A terrace of nine houses side by side across the Sight Cone, 60–80 m away, and a church
+    // tower 300 m away rising over them.
+    const terrace = [-4, -3, -2, -1, 0, 1, 2, 3, 4].map((n) =>
+      building(`house ${n}`, n * 4 - 2, 60 + Math.abs(n) * 2, n * 4 + 2, 70 + Math.abs(n) * 2, { heightMetres: 12 }),
+    );
+    const church = building("church", -5, 300, 5, 320, { heightMetres: 100 });
+
+    const { candidates } = await identify(facing(0), sourceOf(church, ...terrace));
+
+    expect(candidates).toHaveLength(8);
+    expect(candidates.map((c) => c.footprint.id)).toContain("church");
+    expect(candidates.at(-1)?.footprint.id).toBe("church");
+  });
+
+  it("keeps no place for a tall building the user can't see", async () => {
+    // Nine houses side by side across the whole Sight Cone, 60 m away.
+    const terrace = [-4, -3, -2, -1, 0, 1, 2, 3, 4].map((n) =>
+      building(`house ${n}`, n * 3.5 - 1.75, 60, n * 3.5 + 1.75, 70, { heightMetres: 30 }),
+    );
+    // Hidden behind the terrace: its top is 20° up, the terrace's 25°.
+    const office = building("office", -5, 140, 5, 150, { heightMetres: 53 });
+
+    const { candidates } = await identify(facing(0), sourceOf(office, ...terrace));
+
+    expect(candidates.map((c) => c.footprint.id)).not.toContain("office");
+  });
+
+  it("ranks buildings lower than 5 m below all others, Hidden Candidates too", async () => {
+    const garage = building("garage", -3, 30, 3, 36, { heightMetres: 3 });
+    const house = building("house", -10, 80, 10, 90, { heightMetres: 12 });
+    // Hidden behind the house.
+    const shed = building("shed", -2, 120, 2, 124, { heightMetres: 4 });
+    const behind = building("behind", -5, 130, 5, 140, { heightMetres: 10 });
+    const unknown = building("unknown height", 15, 100, 20, 105);
+
+    const { candidates } = await identify(facing(0), sourceOf(garage, house, shed, behind, unknown));
+
+    expect(candidates.map((c) => [c.footprint.id, c.hidden])).toEqual([
+      ["house", false],
+      ["unknown height", false],
+      ["behind", true],
+      ["garage", false],
+      ["shed", true],
     ]);
   });
 

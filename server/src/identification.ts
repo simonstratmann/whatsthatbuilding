@@ -52,6 +52,10 @@ const SIGHT_CONE_HALF_ANGLE_DEGREES = 15;
 /** The Sight View's half-width: buildings this far either side of the heading can be drawn. */
 const SIGHT_VIEW_HALF_ANGLE_DEGREES = 30;
 const MAX_CANDIDATES = 8;
+/** The tallest buildings the user can see keep this many places in the list, however far off. */
+const PLACES_FOR_THE_TALLEST = 3;
+/** Garages, sheds and kiosks: lower than this, a building ranks below all others. */
+const LOW_METRES = 5;
 const USER: Point = { x: 0, y: 0 };
 const SIGHT_CONE_ARC_STEPS = 12;
 /** GPS accuracy worse than this makes the list worth doubting; a starting value to tune after real walks. */
@@ -103,11 +107,7 @@ export async function identify(
   const inCone = inView.filter(({ rings }) => rings.some((ring) => cone.overlaps(ring)));
   const isHidden = hiddenTest(inCone, snapshot.heading);
 
-  const ranked = inCone
-    .map((found) => ({ ...found, hidden: isHidden(found) }))
-    // Candidates the user can see first, then Hidden Candidates; nearest first within each.
-    .sort((a, b) => Number(a.hidden) - Number(b.hidden) || a.distanceMetres - b.distanceMetres)
-    .slice(0, MAX_CANDIDATES);
+  const ranked = rankCandidates(inCone.map((found) => ({ ...found, hidden: isHidden(found) })));
   const isCandidate = new Set(ranked.map(({ footprint }) => footprint.id));
   // In a city centre most buildings in the Sight View hide behind nearer ones; drawing them
   // would change nothing but the size of the response.
@@ -139,6 +139,26 @@ export async function identify(
   });
   const surroundings = others.map((found) => ({ footprintId: found.footprint.id, shell: shellOf(found) }));
   return { candidates, surroundings, warnings: warningsFor(snapshot, candidates.length), ...searched };
+}
+
+/**
+ * The Candidates, in rank order, at most MAX_CANDIDATES: those the user can see, then Hidden
+ * Candidates, then buildings lower than LOW_METRES; nearest first within each. The app is for
+ * buildings a bit farther off, so the tallest ones the user can see always make the list, even
+ * behind more than MAX_CANDIDATES nearer ones; they keep their place in the order.
+ */
+function rankCandidates<C extends FootprintInCone & { hidden: boolean }>(inCone: C[]): C[] {
+  const isLow = ({ footprint }: C) => footprint.heightMetres !== undefined && footprint.heightMetres < LOW_METRES;
+  const group = (c: C) => (isLow(c) ? 2 : c.hidden ? 1 : 0);
+  const ordered = [...inCone].sort(
+    (a, b) => group(a) - group(b) || Number(a.hidden) - Number(b.hidden) || a.distanceMetres - b.distanceMetres,
+  );
+  const tallest = ordered
+    .filter((c) => group(c) === 0 && c.footprint.heightMetres !== undefined)
+    .sort((a, b) => b.footprint.heightMetres! - a.footprint.heightMetres!)
+    .slice(0, PLACES_FOR_THE_TALLEST);
+  const others = ordered.filter((c) => !tallest.includes(c)).slice(0, MAX_CANDIDATES - tallest.length);
+  return ordered.filter((c) => tallest.includes(c) || others.includes(c));
 }
 
 /** What the user should know about a Snapshot inside the Coverage Area, in the order to say it. */

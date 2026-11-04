@@ -45,7 +45,7 @@ What a building is used for, in a short German word or two ("Wohnhaus", "Kirche"
 _Avoid_: Function (that's the code), category, use
 
 **Hidden Candidate**:
-A Candidate that nearer, taller buildings block completely as seen from the user's position. It stays in the list but ranks below Candidates the user can see.
+A Candidate that nearer, taller buildings block completely as seen from the user's position. It stays in the list but ranks below Candidates the user can see. Buildings lower than 5 m (garages, sheds, kiosks) rank below both. The three tallest Candidates the user can see always make the list, however many nearer ones there are: the app is for buildings a bit farther off.
 _Avoid_: Occluded, covered
 
 **Label**:

@@ -113,7 +113,10 @@ export interface ShellSurface {
 export type BuildingShell = ShellSurface[];
 
 export interface Candidate {
-  /** 1-based, in rank order: Candidates the user can see nearest first, then Hidden Candidates nearest first. */
+  /**
+   * 1-based, in rank order: Candidates the user can see nearest first, then Hidden Candidates,
+   * then buildings lower than 5 m. The three tallest the user can see always make the list.
+   */
   number: number;
   footprint: Footprint;
   /** Its real walls and roof when the building model has them, else its Footprint raised to its height. */
