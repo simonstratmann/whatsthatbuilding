@@ -3,7 +3,8 @@
 #   --target production  → no request log                                   (tag: latest)
 #   --target dev         → keeps every request in /app/logs (REQUEST_LOG_DIR) (tag: dev-latest)
 # The server reads its building data from the PostGIS database named by DATABASE_URL and
-# keeps downloaded GML files in /app/cache (LOD2_CACHE_DIR). See docker-compose.yml.
+# keeps downloaded GML files in /app/cache (LOD2_CACHE_DIR) and Aerial Photo tiles in
+# /app/dop-cache (DOP_CACHE_DIR, up to DOP_CACHE_MAX_GB, default 20). See docker-compose.yml.
 
 FROM node:24-alpine AS build
 WORKDIR /app
@@ -27,9 +28,9 @@ COPY shared/src shared/src
 COPY server/src server/src
 COPY --from=build /app/web/dist web/dist
 # Request IDs carry the local time, as they did when the browser made them; Node has its own time zone data.
-ENV NODE_ENV=production PORT=8080 TZ=Europe/Berlin LOD2_CACHE_DIR=/app/cache/lod2
-RUN mkdir -p cache && chown node:node cache
-VOLUME /app/cache
+ENV NODE_ENV=production PORT=8080 TZ=Europe/Berlin LOD2_CACHE_DIR=/app/cache/lod2 DOP_CACHE_DIR=/app/dop-cache
+RUN mkdir -p cache dop-cache && chown node:node cache dop-cache
+VOLUME /app/cache /app/dop-cache
 USER node
 EXPOSE 8080
 CMD ["node", "server/src/main.ts"]

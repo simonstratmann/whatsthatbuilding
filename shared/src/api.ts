@@ -5,6 +5,8 @@
 import type { LatLng } from "./geo.ts";
 
 export const IDENTIFY_PATH = "/api/identify";
+/** Aerial Photo tiles for the mini-map, as `${DOP_PATH}/{z}/{x}/{y}`: 256 px JPEGs in Web Mercator. */
+export const DOP_PATH = "/api/dop";
 /** Where the PWA reports which Candidate the user chose, for the request log. */
 export const CHOICE_PATH = "/api/choice";
 

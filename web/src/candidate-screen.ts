@@ -1,7 +1,7 @@
 import L from "leaflet";
 import type { Candidate, Identification } from "@whatisthatbuilding/shared";
 import { candidateEntryText } from "./candidate-entry.ts";
-import { addBuildingDataCredit, addOsmTiles, toLeaflet } from "./leaflet-map.ts";
+import { addBaseLayers, addBuildingDataCredit, toLeaflet } from "./leaflet-map.ts";
 
 const FIT_PADDING_PIXELS = 24;
 
@@ -32,7 +32,7 @@ export function showCandidateScreen(
   container.innerHTML = `<div class="mini-map"></div><ol class="candidates"></ol>`;
   const list = container.querySelector<HTMLOListElement>(".candidates")!;
   const map = L.map(container.querySelector<HTMLElement>(".mini-map")!, { zoomSnap: 0.25 });
-  addOsmTiles(map);
+  addBaseLayers(map);
   addBuildingDataCredit(map);
 
   L.polygon(sightCone.map(toLeaflet), {

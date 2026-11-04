@@ -41,6 +41,8 @@ services:
     volumes:
       # Downloaded LoD2 GML files. The container runs as uid 1000, which must be able to write here.
       - lod2-cache:/app/cache
+      # Aerial Photo tiles, up to DOP_CACHE_MAX_GB (default 20) before the oldest are deleted.
+      - dop-cache:/app/dop-cache
 
   app-dev:
     image: ghcr.io/simonstratmann/whatsthatbuilding:dev-latest
@@ -53,6 +55,8 @@ services:
     environment: *app-environment
     volumes:
       - lod2-cache:/app/cache
+      # Its own Aerial Photo cache: each app keeps track of the size of the cache it writes to.
+      - dop-cache-dev:/app/dop-cache
       # Request logs: requests.log and requests/<id>.json. The container runs as uid 1000,
       # which must be able to write here.
       - ./logs:/app/logs
@@ -75,3 +79,5 @@ services:
 volumes:
   postgis-data:
   lod2-cache:
+  dop-cache:
+  dop-cache-dev:

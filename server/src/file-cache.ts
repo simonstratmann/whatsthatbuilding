@@ -1,7 +1,8 @@
 // Writing downloads into the GML file cache, which both images (and the import commands) share.
 import { randomUUID } from "node:crypto";
 import { createWriteStream } from "node:fs";
-import { rename, rm, stat } from "node:fs/promises";
+import { mkdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream } from "node:stream/web";
@@ -17,6 +18,19 @@ export async function saveBody(response: Response, path: string): Promise<void> 
   try {
     // The DOM's stream type, when the web package's type check reaches this file, isn't Node's.
     await pipeline(Readable.fromWeb(response.body as ReadableStream<Uint8Array>), createWriteStream(part));
+    await rename(part, path);
+  } catch (error) {
+    await rm(part, { force: true });
+    throw error;
+  }
+}
+
+/** Writes `bytes` to `path`, making its folder; like saveBody, the file only appears once whole. */
+export async function writeWhole(path: string, bytes: Uint8Array): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  const part = `${path}.${randomUUID()}.part`;
+  try {
+    await writeFile(part, bytes);
     await rename(part, path);
   } catch (error) {
     await rm(part, { force: true });

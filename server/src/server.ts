@@ -4,12 +4,14 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import {
   CHOICE_PATH,
   COMPASS_CALIBRATIONS,
+  DOP_PATH,
   IDENTIFY_PATH,
   type ChoiceReport,
   type IdentifyRequest,
   type IdentifyResponse,
 } from "@whatisthatbuilding/shared";
 import { Hono } from "hono";
+import { isTileKey, type DopProxy } from "./dop-proxy.ts";
 import { identify, type FootprintSource, type LabelSource } from "./identification.ts";
 import { finishRecord, isRequestId, newRequestId, recordingSource, startRecord, writeRequestLog } from "./request-log.ts";
 
@@ -18,6 +20,8 @@ export interface AppOptions {
   footprintSource: FootprintSource;
   /** Where building names come from: Overpass, or a fake in tests; without it Candidates are labelled by address. */
   labelSource?: LabelSource;
+  /** Where Aerial Photo tiles come from; without it there are none. */
+  dop?: DopProxy;
   /** Where the request log goes (see writeRequestLog); without it nothing is written to disk. */
   requestLogDir?: string;
   /** The built PWA, served for every path outside /api; without it only the API is served. */
@@ -25,7 +29,7 @@ export interface AppOptions {
 }
 
 /** The API and, given a webRoot, the PWA. */
-export function createApp({ footprintSource, labelSource, requestLogDir, webRoot }: AppOptions): Hono {
+export function createApp({ footprintSource, labelSource, dop, requestLogDir, webRoot }: AppOptions): Hono {
   const app = new Hono();
 
   app.post(IDENTIFY_PATH, async (c) => {
@@ -61,6 +65,22 @@ export function createApp({ footprintSource, labelSource, requestLogDir, webRoot
     }
     return c.body(null, 204);
   });
+
+  if (dop) {
+    app.get(`${DOP_PATH}/:z/:x/:y`, async (c) => {
+      const asInteger = (text: string) => (/^\d+$/.test(text) ? Number(text) : NaN);
+      const key = { z: asInteger(c.req.param("z")), x: asInteger(c.req.param("x")), y: asInteger(c.req.param("y")) };
+      if (!isTileKey(key)) return c.body(null, 404);
+      try {
+        const { bytes, contentType } = await dop.tile(key);
+        // The imagery changes once a year or so.
+        return c.body(bytes, 200, { "Content-Type": contentType, "Cache-Control": "public, max-age=604800" });
+      } catch {
+        // The proxy has logged why.
+        return c.body(null, 502);
+      }
+    });
+  }
 
   app.all("/api/*", (c) => c.json({ error: "Not found" }, 404));
 

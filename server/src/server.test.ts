@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChoiceReport, Footprint, IdentifyRequest, IdentifyResponse, LatLng } from "@whatisthatbuilding/shared";
+import type { DopProxy } from "./dop-proxy.ts";
 import type { FootprintSource, LabelSource } from "./identification.ts";
 import { startServer, type RunningServer } from "./server.ts";
 import { offsetFrom } from "./test-geo.ts";
@@ -179,6 +180,47 @@ describe("POST /api/identify", () => {
 
     expect((await post(`${url}/api/choice`, { requestId: "../../etc/passwd", choice })).status).toBe(400);
     expect((await post(`${url}/api/choice`, { requestId: "20261103-180000-abcd", choice: { number: "1" } })).status).toBe(400);
+  });
+});
+
+describe("GET /api/dop/{z}/{x}/{y}", () => {
+  const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);
+
+  async function startWithDop(dop: DopProxy): Promise<string> {
+    server = await startServer({ port: 0, footprintSource: sourceOf(), dop });
+    return server.url;
+  }
+
+  it("serves the Aerial Photo tile as a JPEG the browser may keep", async () => {
+    const tile = vi.fn<DopProxy["tile"]>(async () => ({ bytes: JPEG, contentType: "image/jpeg" }));
+    const url = await startWithDop({ tile });
+
+    const response = await fetch(`${url}/api/dop/17/69081/43072`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("image/jpeg");
+    expect(response.headers.get("Cache-Control")).toContain("max-age");
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(JPEG);
+    expect(tile).toHaveBeenCalledWith({ z: 17, x: 69081, y: 43072 });
+  });
+
+  it("answers 502 when the imagery service gives no tile", async () => {
+    const url = await startWithDop({ tile: async () => Promise.reject(new Error("LGLN answered 503")) });
+
+    const response = await fetch(`${url}/api/dop/17/69081/43072`);
+
+    expect(response.status).toBe(502);
+    expect(response.headers.get("Cache-Control")).toBeNull();
+  });
+
+  it("refuses a tile that doesn't exist", async () => {
+    const tile = vi.fn<DopProxy["tile"]>();
+    const url = await startWithDop({ tile });
+
+    for (const path of ["17/69081/x", "17/-1/0", "2/4/0", "17/1.5/2", "30/0/0"]) {
+      expect((await fetch(`${url}/api/dop/${path}`)).status, path).toBe(404);
+    }
+    expect(tile).not.toHaveBeenCalled();
   });
 });
 

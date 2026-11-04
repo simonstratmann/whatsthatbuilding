@@ -4,12 +4,16 @@
 
 **Blocked by:** 02 (Identify on the server)
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
-- [ ] A tile inside Hamburg is fetched from the Hamburg WMS, any other tile from LGLN (tested with upstream faked)
-- [ ] A second request for the same tile is served from the cache (tested)
-- [ ] The cache stays under its configured size limit, evicting the oldest tiles first
-- [ ] Upstream failures are logged and return an error status, not a broken image cached as a tile
-- [ ] The cache lives on a persistent volume in Compose
-- [ ] The mini-map has a toggle between street map and Aerial Photos, and shows the matching credits
+- [x] A tile inside Hamburg is fetched from the Hamburg WMS, any other tile from LGLN (tested with upstream faked)
+- [x] A second request for the same tile is served from the cache (tested)
+- [x] The cache stays under its configured size limit, evicting the oldest tiles first
+- [x] Upstream failures are logged and return an error status, not a broken image cached as a tile
+- [x] The cache lives on a persistent volume in Compose
+- [x] The mini-map has a toggle between street map and Aerial Photos, and shows the matching credits
 - [ ] Checked by hand in dev mode in Hamburg and in Niedersachsen
+
+## Comments
+
+**2026-11-04 (agent):** Implemented in `server/src/dop-proxy.ts` (`GET /api/dop/{z}/{x}/{y}`), with Hamburg's border from OSM relation 62782 in `server/src/hamburg-boundary.ts`. A tile counts as inside Hamburg only if it clears the simplified border by 30 m. Settings: `DOP_CACHE_DIR`, `DOP_CACHE_MAX_GB` (default 20). In Compose, app and app-dev each have their own cache volume, so up to 40 GB together. Checked against the real WMS: a Rathausmarkt tile came from Hamburg, Kröpcke from LGLN, a border tile from LGLN, and repeats were served from the cache. Left for a human: the mini-map toggle and credits in the browser (no browser tool was available), in Hamburg and in Niedersachsen. Tiles on Hamburg's Schleswig-Holstein border go to LGLN as well, which probably leaves the Schleswig-Holstein side blank.
