@@ -12,6 +12,7 @@ function candidate({
   return {
     number: 3,
     footprint: { id: "b", rings: [], centre: position, ...(heightMetres === undefined ? {} : { heightMetres }) },
+    shell: [],
     distanceMetres,
     location: { position, geoUri: "geo:53.55,10", ...(label ? { label } : {}) },
     ...(buildingType ? { buildingType } : {}),

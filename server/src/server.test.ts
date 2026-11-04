@@ -72,6 +72,25 @@ describe("POST /api/identify", () => {
     expect(body.identification.lineOfSight.from).toEqual(ORIGIN);
   });
 
+  it("gives each Candidate its Building Shell, in metres around the user", async () => {
+    const url = await start(sourceOf({ ...TOWN_HALL, heightMetres: 25 }));
+
+    const body = (await (await post(`${url}/api/identify`, facingNorth)).json()) as IdentifyResponse;
+
+    if (!("identification" in body)) throw new Error(`expected an identification, got ${JSON.stringify(body)}`);
+    const shell = body.identification.candidates[0]?.shell ?? [];
+    expect(shell).toContainEqual({
+      kind: "roof",
+      ring: [
+        [-10, 50, 25],
+        [10, 50, 25],
+        [10, 70, 25],
+        [-10, 70, 25],
+      ],
+    });
+    expect(shell.filter((surface) => surface.kind === "wall")).toHaveLength(4);
+  });
+
   it("answers a Snapshot outside the Coverage Area with its warning and no Candidates", async () => {
     const url = await start({ covers: async () => false, footprintsAround: async () => [TOWN_HALL] });
 

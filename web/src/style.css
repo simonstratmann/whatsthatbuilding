@@ -23,7 +23,32 @@ html, body, #app { margin: 0; height: 100%; font-family: system-ui, sans-serif; 
 .candidates { padding-left: 1.5rem; }
 .candidates li { padding: 0.25rem 0; }
 
-.mini-map { height: 18rem; margin-top: 1rem; border: 1px solid #ddd; }
+.picture-toggle { display: flex; margin-top: 1rem; }
+.picture-toggle button { flex: 1; padding: 0.4rem; font: inherit; background: #fff; border: 1px solid #1a73e8; color: #1a73e8; cursor: pointer; }
+.picture-toggle button:first-child { border-radius: 4px 0 0 4px; }
+.picture-toggle button:last-child { border-radius: 0 4px 4px 0; border-left: none; }
+.picture-toggle button[aria-pressed="true"] { background: #1a73e8; color: #fff; }
+/* Both pictures stay laid out, the hidden one invisible, so the map keeps its size and fit. */
+.pictures { position: relative; height: 18rem; margin-top: 0.5rem; border: 1px solid #ddd; }
+.picture { position: absolute; inset: 0; visibility: hidden; }
+.picture.shown { visibility: visible; }
+
+.sight-view-box { background: linear-gradient(#dbe8f5, #f4f7fa); }
+.sight-view { display: block; width: 100%; height: 100%; }
+.sight-view .building { stroke: #fff; stroke-opacity: 0.6; stroke-width: 1; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.sight-view .candidate { cursor: pointer; }
+.sight-view .candidate.wall { fill: #f5a540; }
+.sight-view .candidate.roof { fill: #b35f00; }
+.sight-view .candidate.wall.chosen { fill: #5a9cf0; }
+.sight-view .candidate.roof.chosen { fill: #0b4fae; }
+.sight-view .line-of-sight, .sight-view .sight-cone-edge { stroke: #d33; stroke-opacity: 0.5; stroke-width: 1.5; vector-effect: non-scaling-stroke; pointer-events: none; }
+.sight-view .line-of-sight { stroke-dasharray: 6 4; }
+.sight-view .sight-cone-edge { stroke-opacity: 0.3; }
+.sight-view .number { cursor: pointer; }
+.sight-view .number circle { fill: #fff; stroke: #b35f00; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.sight-view .number text { font: 700 40px system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; fill: #000; }
+.sight-view .number.chosen circle { fill: #1a73e8; stroke: #0b4fae; }
+.sight-view .number.chosen text { fill: #fff; }
 .mini-map .sight-cone { fill: #d33; fill-opacity: 0.18; stroke: #d33; stroke-opacity: 0.8; stroke-width: 1.5; }
 .mini-map .line-of-sight { stroke: #d33; stroke-width: 2; stroke-dasharray: 6 4; }
 .mini-map .footprint { fill: #f08c00; fill-opacity: 0.35; stroke: #b35f00; stroke-width: 2; }

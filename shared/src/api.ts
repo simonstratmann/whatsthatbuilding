@@ -89,10 +89,30 @@ export interface Location {
   geoUri: string;
 }
 
+/** What part of a Building Shell a surface is. */
+export type SurfaceKind = "wall" | "roof" | "ground";
+
+/**
+ * Metres east, north and up of the user's position, to 0.1 m. "Up" is measured from the lowest
+ * point of the building's own Shell, so every building stands on its own ground at 0 m.
+ */
+export type ShellPoint = [east: number, north: number, up: number];
+
+export interface ShellSurface {
+  kind: SurfaceKind;
+  /** The surface's outer ring, without repeating its first point; holes are left out. */
+  ring: ShellPoint[];
+}
+
+/** A building's walls, roof and ground in 3D, around the user's position, for the Sight View. */
+export type BuildingShell = ShellSurface[];
+
 export interface Candidate {
   /** 1-based, in rank order: Candidates the user can see nearest first, then Hidden Candidates nearest first. */
   number: number;
   footprint: Footprint;
+  /** Its real walls and roof when the building model has them, else its Footprint raised to its height. */
+  shell: BuildingShell;
   distanceMetres: number;
   location: Location;
   /** A short German name for what the building is, e.g. "Wohnhaus"; absent when the building model doesn't say. */

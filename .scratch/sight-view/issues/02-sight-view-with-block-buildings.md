@@ -19,14 +19,18 @@ See the spec (Local coordinates, API contract, Sight View projection, Sight View
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
-- [ ] `identify()` gives each Candidate a block Shell of its Footprint and height, in east/north/up metres relative to the user, with a default height when it's unknown (tested with a fake Footprint source)
-- [ ] `POST /api/identify` returns each Candidate's Shell (tested)
-- [ ] Projection: a building straight ahead lands in the middle of the view, one 30° off at the edge, and one behind the user isn't drawn (tested)
-- [ ] Projection: a nearer building comes after a farther one in the draw list, and the chosen Candidate is flagged (tested)
-- [ ] Projection: each Candidate's number sits above its highest point, and the markers sit at the middle and at ±15° (tested)
-- [ ] The View | Map toggle opens on View, switches without rebuilding the map, and keeps its state for the Snapshot
-- [ ] Choosing from the Sight View, the map or the list highlights the same Candidate in all three
-- [ ] Dev mode shows the Sight View for a desk Snapshot
+- [x] `identify()` gives each Candidate a block Shell of its Footprint and height, in east/north/up metres relative to the user, with a default height when it's unknown (tested with a fake Footprint source)
+- [x] `POST /api/identify` returns each Candidate's Shell (tested)
+- [x] Projection: a building straight ahead lands in the middle of the view, one 30° off at the edge, and one behind the user isn't drawn (tested)
+- [x] Projection: a nearer building comes after a farther one in the draw list, and the chosen Candidate is flagged (tested)
+- [x] Projection: each Candidate's number sits above its highest point, and the markers sit at the middle and at ±15° (tested)
+- [x] The View | Map toggle opens on View, switches without rebuilding the map, and keeps its state for the Snapshot
+- [x] Choosing from the Sight View, the map or the list highlights the same Candidate in all three
+- [x] Dev mode shows the Sight View for a desk Snapshot
 - [ ] Checked by hand on a phone at a known spot: the blocks line up with the buildings in front
+
+## Comments
+
+Checked in headless Chrome against a Hannover Snapshot (Kröpcke, facing 200°): blocks, numbers, markers, the chosen highlight and the View | Map toggle all show. A tall near building fills the frame; the frame is capped at 0.85 of its width and cuts the foot of the picture first. The phone check at a known spot is still open.

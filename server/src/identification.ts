@@ -14,6 +14,7 @@ import {
   type Point,
   type Snapshot,
 } from "@whatisthatbuilding/shared";
+import { blockShell } from "./building-shells.ts";
 import { buildingTypeOf } from "./building-types.ts";
 
 export interface FootprintSource {
@@ -90,13 +91,14 @@ export async function identify(
     // Candidates the user can see first, then Hidden Candidates; nearest first within each.
     .sort((a, b) => Number(a.hidden) - Number(b.hidden) || a.distanceMetres - b.distanceMetres)
     .slice(0, MAX_CANDIDATES)
-    .map(({ footprint, distanceMetres }, index) => {
+    .map(({ footprint, rings, distanceMetres }, index) => {
       const name = names?.nameOf(footprint);
       const withName = name ? { ...footprint, name } : footprint;
       const buildingType = footprint.functionCode ? buildingTypeOf(footprint.functionCode) : undefined;
       return {
         number: index + 1,
         footprint: withName,
+        shell: blockShell(rings, footprint.heightMetres),
         distanceMetres,
         location: locationOf(withName),
         ...(buildingType ? { buildingType } : {}),

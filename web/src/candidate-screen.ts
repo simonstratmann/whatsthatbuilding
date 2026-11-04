@@ -1,26 +1,27 @@
-import L from "leaflet";
 import type { Candidate, Identification } from "@whatisthatbuilding/shared";
 import { candidateEntryText } from "./candidate-entry.ts";
+import { drawCandidateMap, type CandidatePicture } from "./candidate-map.ts";
 import { noticesFor } from "./identification-notices.ts";
-import { addBaseLayers, addBuildingDataCredit, toLeaflet } from "./leaflet-map.ts";
-
-const FIT_PADDING_PIXELS = 24;
+import { drawSightView } from "./sight-view-drawing.ts";
 
 export interface CandidateScreen {
   /** Tears down the mini-map; call before discarding the container. */
   destroy(): void;
 }
 
+type Picture = "view" | "map";
+
 /**
- * The Candidates of one Snapshot: a mini-map of the user's position, Line of Sight, Sight Cone
- * and numbered Footprints, above a list in rank order. Tapping a Footprint or a list entry
- * chooses that Candidate.
+ * The Candidates of one Snapshot: the Sight View or the mini-map, behind a View | Map toggle,
+ * above a list in rank order. Tapping a building in either picture or a list entry chooses
+ * that Candidate, and all three highlight it.
  */
 export function showCandidateScreen(
   container: HTMLElement,
-  { candidates, warnings, sightCone, lineOfSight }: Identification,
+  identification: Identification,
   onChoose: (candidate: Candidate) => void,
 ): CandidateScreen {
+  const { candidates, warnings } = identification;
   container.innerHTML = "";
   for (const text of noticesFor(warnings)) {
     const notice = document.createElement("p");
@@ -30,35 +31,27 @@ export function showCandidateScreen(
   }
   if (candidates.length === 0) return { destroy() {} };
 
-  container.insertAdjacentHTML("beforeend", `<div class="mini-map"></div><ol class="candidates"></ol>`);
+  container.insertAdjacentHTML(
+    "beforeend",
+    `<div class="picture-toggle" role="group" aria-label="Show">
+       <button type="button" data-picture="view">View</button><button type="button" data-picture="map">Map</button>
+     </div>
+     <div class="pictures">
+       <div class="picture sight-view-box" data-picture="view"></div>
+       <div class="picture mini-map" data-picture="map"></div>
+     </div>
+     <ol class="candidates"></ol>`,
+  );
   const list = container.querySelector<HTMLOListElement>(".candidates")!;
-  const map = L.map(container.querySelector<HTMLElement>(".mini-map")!, { zoomSnap: 0.25 });
-  addBaseLayers(map);
-  addBuildingDataCredit(map);
+  const pictureBox = (picture: Picture) => container.querySelector<HTMLElement>(`.picture[data-picture="${picture}"]`)!;
 
-  L.polygon(sightCone.map(toLeaflet), {
-    className: "sight-cone",
-    interactive: false,
-  }).addTo(map);
-  L.polyline([toLeaflet(lineOfSight.from), toLeaflet(lineOfSight.to)], {
-    className: "line-of-sight",
-    interactive: false,
-  }).addTo(map);
+  // Both are drawn now, so switching between them is instant and the map keeps its fit.
+  const pictures: CandidatePicture[] = [
+    drawSightView(pictureBox("view"), identification, choose),
+    drawCandidateMap(pictureBox("map"), identification, choose),
+  ];
 
-  const drawnCandidates = candidates.map((candidate) => {
-    // Each ring is its own outer ring, not a hole, so wrap it as a separate polygon part.
-    const footprint = L.polygon(candidate.footprint.rings.map((ring) => [ring.map(toLeaflet)]), {
-      className: "footprint",
-    })
-      .bindTooltip(String(candidate.number), {
-        permanent: true,
-        direction: "center",
-        className: "footprint-number",
-        interactive: true,
-      })
-      .on("click", () => choose(candidate))
-      .addTo(map);
-
+  const items = candidates.map((candidate) => {
     const item = document.createElement("li");
     item.value = candidate.number;
     const button = document.createElement("button");
@@ -67,30 +60,27 @@ export function showCandidateScreen(
     button.addEventListener("click", () => choose(candidate));
     item.append(button);
     list.append(item);
-
-    return { candidate, footprint, item };
+    return { number: candidate.number, item };
   });
 
-  L.circleMarker(toLeaflet(lineOfSight.from), { className: "user-position", radius: 7, interactive: false }).addTo(map);
-
-  const bounds = L.latLngBounds([toLeaflet(lineOfSight.from)]);
-  for (const { footprint } of drawnCandidates) bounds.extend(footprint.getBounds());
-  map.fitBounds(bounds, { padding: [FIT_PADDING_PIXELS, FIT_PADDING_PIXELS] });
+  const toggles = [...container.querySelectorAll<HTMLButtonElement>(".picture-toggle button")];
+  const show = (shown: Picture) => {
+    for (const button of toggles) button.setAttribute("aria-pressed", String(button.dataset.picture === shown));
+    for (const picture of ["view", "map"] as const) pictureBox(picture).classList.toggle("shown", picture === shown);
+  };
+  for (const button of toggles) button.addEventListener("click", () => show(button.dataset.picture as Picture));
+  // The Sight View first: it's the picture most like what the user sees.
+  show("view");
 
   function choose(chosen: Candidate): void {
-    for (const { candidate, footprint, item } of drawnCandidates) {
-      const isChosen = candidate === chosen;
-      footprint.getElement()?.classList.toggle("chosen", isChosen);
-      footprint.getTooltip()?.getElement()?.classList.toggle("chosen", isChosen);
-      item.classList.toggle("chosen", isChosen);
-      if (isChosen) footprint.bringToFront();
-    }
+    for (const picture of pictures) picture.highlight(chosen.number);
+    for (const { number, item } of items) item.classList.toggle("chosen", number === chosen.number);
     onChoose(chosen);
   }
 
   return {
     destroy() {
-      map.remove();
+      for (const picture of pictures) picture.destroy();
     },
   };
 }

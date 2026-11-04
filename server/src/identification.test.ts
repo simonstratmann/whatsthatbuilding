@@ -437,6 +437,67 @@ describe("identify", () => {
     await expect(identify(facing(0), source)).rejects.toThrow(/download failed/);
   });
 
+  it("gives a Candidate without a Building Shell a block: its Footprint raised to its height", async () => {
+    const shop = building("shop", -10, 90, 10, 110, { heightMetres: 12.34 });
+
+    const { candidates } = await identify(facing(0), sourceOf(shop));
+
+    const shell = candidates[0]!.shell;
+    const ground = shell.filter((s) => s.kind === "ground");
+    const roofs = shell.filter((s) => s.kind === "roof");
+    const walls = shell.filter((s) => s.kind === "wall");
+    expect(ground.map((s) => s.ring)).toEqual([
+      [
+        [-10, 90, 0],
+        [10, 90, 0],
+        [10, 110, 0],
+        [-10, 110, 0],
+      ],
+    ]);
+    expect(roofs.map((s) => s.ring)).toEqual([
+      [
+        [-10, 90, 12.3],
+        [10, 90, 12.3],
+        [10, 110, 12.3],
+        [-10, 110, 12.3],
+      ],
+    ]);
+    expect(walls.map((s) => s.ring)).toEqual([
+      [[-10, 90, 0], [10, 90, 0], [10, 90, 12.3], [-10, 90, 12.3]],
+      [[10, 90, 0], [10, 110, 0], [10, 110, 12.3], [10, 90, 12.3]],
+      [[10, 110, 0], [-10, 110, 0], [-10, 110, 12.3], [10, 110, 12.3]],
+      [[-10, 110, 0], [-10, 90, 0], [-10, 90, 12.3], [-10, 110, 12.3]],
+    ]);
+  });
+
+  it("raises a Footprint of unknown height to a default height, so it can still be drawn", async () => {
+    const unknown = building("unknown", -10, 90, 10, 110);
+
+    const { candidates } = await identify(facing(0), sourceOf(unknown));
+
+    const roofHeights = candidates[0]!.shell.filter((s) => s.kind === "roof").flatMap((s) => s.ring.map(([, , up]) => up));
+    expect(roofHeights.length).toBeGreaterThan(0);
+    expect(new Set(roofHeights).size).toBe(1);
+    expect(roofHeights[0]).toBeGreaterThan(3);
+  });
+
+  it("gives each part of a Footprint of several parts its own block", async () => {
+    const pair: Footprint = {
+      ...building("pair", -10, 90, 0, 100, { heightMetres: 8 }),
+      rings: [
+        [offset(-10, 90), offset(0, 90), offset(0, 100), offset(-10, 100)],
+        [offset(0, 90), offset(10, 90), offset(10, 100)],
+      ],
+    };
+
+    const { candidates } = await identify(facing(0), sourceOf(pair));
+
+    const shell = candidates[0]!.shell;
+    expect(shell.filter((s) => s.kind === "ground")).toHaveLength(2);
+    expect(shell.filter((s) => s.kind === "roof")).toHaveLength(2);
+    expect(shell.filter((s) => s.kind === "wall")).toHaveLength(7);
+  });
+
   it("describes the Sight Cone it searched: from the user out to 500 m, ±15° around the heading", async () => {
     const { sightCone } = await identify(facing(355), sourceOf());
 
