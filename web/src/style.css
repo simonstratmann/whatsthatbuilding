@@ -41,6 +41,8 @@ html, body, #app { margin: 0; height: 100%; font-family: system-ui, sans-serif; 
 .sight-view .candidate.roof { fill: #b35f00; }
 .sight-view .candidate.wall.chosen { fill: #5a9cf0; }
 .sight-view .candidate.roof.chosen { fill: #0b4fae; }
+.sight-view .surroundings.wall { fill: #c4c7cc; }
+.sight-view .surroundings.roof { fill: #8d9299; }
 .sight-view .line-of-sight, .sight-view .sight-cone-edge { stroke: #d33; stroke-opacity: 0.5; stroke-width: 1.5; vector-effect: non-scaling-stroke; pointer-events: none; }
 .sight-view .line-of-sight { stroke-dasharray: 6 4; }
 .sight-view .sight-cone-edge { stroke-opacity: 0.3; }

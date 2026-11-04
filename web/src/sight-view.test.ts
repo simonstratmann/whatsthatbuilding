@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { BuildingShell, Candidate, Identification, LatLng, ShellPoint } from "@whatisthatbuilding/shared";
+import type {
+  BuildingShell,
+  Candidate,
+  Identification,
+  LatLng,
+  ShellPoint,
+  SurroundingsBuilding,
+} from "@whatisthatbuilding/shared";
 import { sightView, type SightView } from "./sight-view.ts";
 import { offsetFrom } from "./test-geo.ts";
 
@@ -43,10 +50,14 @@ function candidate(number: number, shell: BuildingShell): Candidate {
   };
 }
 
-/** The Identification of a Snapshot facing `heading`, with these Candidates. */
+/** The Identification of a Snapshot facing `heading`, with these Candidates and no Surroundings. */
 function identification(heading: number, ...candidates: Candidate[]): Identification {
   const ahead = offset(500 * Math.sin(degrees(heading)), 500 * Math.cos(degrees(heading)));
-  return { candidates, warnings: [], sightCone: [USER], lineOfSight: { from: USER, to: ahead } };
+  return { candidates, surroundings: [], warnings: [], sightCone: [USER], lineOfSight: { from: USER, to: ahead } };
+}
+
+function surrounding(footprintId: string, shell: BuildingShell): SurroundingsBuilding {
+  return { footprintId, shell };
 }
 
 function polygonsOf(view: SightView, number: number) {
@@ -127,6 +138,37 @@ describe("sightView", () => {
     const firstOfNearer = order.indexOf(1);
     expect(lastOfFarther).toBeGreaterThanOrEqual(0);
     expect(firstOfNearer).toBeGreaterThan(lastOfFarther);
+  });
+
+  it("draws a Surroundings building in front of a Candidate after it, grey and without a number", () => {
+    const view = sightView({
+      ...identification(0, candidate(1, box(0, 150, { height: 30 }))),
+      surroundings: [surrounding("shop", box(-2, 50)), surrounding("tower", box(5, 300, { height: 60 }))],
+    });
+
+    const roles = view.polygons.map((p) => p.role);
+    const firstCandidate = roles.indexOf("candidate");
+    const lastCandidate = roles.lastIndexOf("candidate");
+    // The tower behind first, then the Candidate, then the shop in front.
+    expect(roles.slice(0, firstCandidate).every((role) => role === "surroundings")).toBe(true);
+    expect(firstCandidate).toBeGreaterThan(0);
+    expect(roles.slice(lastCandidate + 1).length).toBeGreaterThan(0);
+    expect(roles.slice(lastCandidate + 1).every((role) => role === "surroundings")).toBe(true);
+    for (const polygon of view.polygons.filter((p) => p.role === "surroundings")) {
+      expect(polygon.number).toBeUndefined();
+      expect(polygon.chosen).toBe(false);
+    }
+    expect(view.numbers.map((n) => n.number)).toEqual([1]);
+  });
+
+  it("makes room in the frame for a Surroundings building taller than every Candidate", () => {
+    const withoutTower = sightView(identification(0, candidate(1, box(0, 100))));
+    const withTower = sightView({
+      ...identification(0, candidate(1, box(0, 100))),
+      surroundings: [surrounding("tower", box(20, 100, { height: 60 }))],
+    });
+
+    expect(withTower.height).toBeGreaterThan(withoutTower.height);
   });
 
   it("draws a building's far walls before its near wall", () => {

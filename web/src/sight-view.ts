@@ -14,9 +14,10 @@ export type ViewPoint = [x: number, y: number];
 export interface SightPolygon {
   points: ViewPoint[];
   surface: SurfaceKind;
-  role: "candidate";
-  /** The Candidate's number, as in the list. */
-  number: number;
+  /** A Candidate's, or one of the Surroundings', which are only there to orient by. */
+  role: "candidate" | "surroundings";
+  /** The Candidate's number, as in the list; absent for the Surroundings. */
+  number?: number;
   chosen: boolean;
 }
 
@@ -85,10 +86,10 @@ interface ProjectedSurface {
 }
 
 /**
- * The Sight View of an Identification: its Candidates' Building Shells as seen from the user's
- * eye, facing the heading, in perspective. `chosen` is the number of the chosen Candidate.
+ * The Sight View of an Identification: its Candidates' and Surroundings' Building Shells as seen
+ * from the user's eye, facing the heading, in perspective. `chosen` is the number of the chosen Candidate.
  */
-export function sightView({ candidates, lineOfSight }: Identification, chosen?: number): SightView {
+export function sightView({ candidates, surroundings, lineOfSight }: Identification, chosen?: number): SightView {
   const heading = radians(bearing(lineOfSight.from, lineOfSight.to));
   const toEye = ([east, north, up]: ShellPoint): EyePoint => ({
     right: east * Math.cos(heading) - north * Math.sin(heading),
@@ -96,13 +97,15 @@ export function sightView({ candidates, lineOfSight }: Identification, chosen?: 
     up: up - EYE_HEIGHT_METRES,
   });
 
-  const buildings = candidates
-    .map((candidate) => ({
-      number: candidate.number,
-      distance: groundDistance(candidate.shell),
-      surfaces: projectShell(candidate.shell, toEye),
-    }))
-    .filter(({ surfaces }) => surfaces.length > 0);
+  const project = (shell: BuildingShell, number?: number) => ({
+    number,
+    distance: groundDistance(shell),
+    surfaces: projectShell(shell, toEye),
+  });
+  const buildings = [
+    ...candidates.map(({ shell, number }) => project(shell, number)),
+    ...surroundings.map(({ shell }) => project(shell)),
+  ].filter(({ surfaces }) => surfaces.length > 0);
 
   const all = buildings.flatMap(({ surfaces }) => surfaces.flatMap(({ points }) => points));
   // The frame in tangent space, y upwards: from the lowest point drawn to above the highest.
@@ -117,10 +120,15 @@ export function sightView({ candidates, lineOfSight }: Identification, chosen?: 
   // Farthest building first; within one, its farthest surface first.
   for (const { number, surfaces } of [...buildings].sort((a, b) => b.distance - a.distance)) {
     for (const { points, surface } of [...surfaces].sort((a, b) => b.distance - a.distance)) {
-      polygons.push({ points: points.map(toView), surface, role: "candidate", number, chosen: number === chosen });
+      polygons.push(
+        number === undefined
+          ? { points: points.map(toView), surface, role: "surroundings", chosen: false }
+          : { points: points.map(toView), surface, role: "candidate", number, chosen: number === chosen },
+      );
     }
   }
   for (const { number, surfaces } of buildings) {
+    if (number === undefined) continue;
     const highestPoint = surfaces.flatMap(({ points }) => points).reduce((a, b) => (b.y > a.y ? b : a));
     const [x, y] = toView(highestPoint);
     numbers.push({

@@ -44,6 +44,8 @@ export const NO_NAMES: LabelSource = { namesAround: async () => ({ nameOf: () =>
 
 const SIGHT_CONE_RANGE_METRES = 500;
 const SIGHT_CONE_HALF_ANGLE_DEGREES = 15;
+/** The Sight View's half-width: buildings this far either side of the heading can be drawn. */
+const SIGHT_VIEW_HALF_ANGLE_DEGREES = 30;
 const MAX_CANDIDATES = 8;
 const USER: Point = { x: 0, y: 0 };
 const SIGHT_CONE_ARC_STEPS = 12;
@@ -76,17 +78,20 @@ export async function identify(
   if (covered.status === "rejected") throw covered.reason;
   // Outside the Coverage Area the Footprints don't matter, nor does failing to get them.
   if (!covered.value) {
-    return { candidates: [], warnings: ["outside-coverage-area"], ...searched };
+    return { candidates: [], surroundings: [], warnings: ["outside-coverage-area"], ...searched };
   }
   if (around.status === "rejected") throw around.reason;
   const footprints = around.value;
   const names = namesAround.status === "fulfilled" ? namesAround.value : undefined;
 
   const toLocal = localProjection(snapshot.position);
-  const cone = sightConeOverlapTest(snapshot.heading);
+  const cone = wedgeOverlapTest(snapshot.heading, SIGHT_CONE_HALF_ANGLE_DEGREES);
+  const view = wedgeOverlapTest(snapshot.heading, SIGHT_VIEW_HALF_ANGLE_DEGREES);
 
-  const inCone = footprints
+  const inView = footprints
     .map((footprint) => ({ footprint, rings: footprint.rings.map((ring) => ring.map(toLocal)) }))
+    .filter(({ rings }) => rings.some((ring) => view.overlaps(ring)));
+  const inCone = inView
     .filter(({ rings }) => rings.some((ring) => cone.overlaps(ring)))
     .map((found) => ({ ...found, distanceMetres: distanceToRings(found.rings) }));
   const isHidden = hiddenTest(inCone, snapshot.heading);
@@ -96,25 +101,39 @@ export async function identify(
     // Candidates the user can see first, then Hidden Candidates; nearest first within each.
     .sort((a, b) => Number(a.hidden) - Number(b.hidden) || a.distanceMetres - b.distanceMetres)
     .slice(0, MAX_CANDIDATES);
+  const isCandidate = new Set(ranked.map(({ footprint }) => footprint.id));
+  // In a city centre most buildings in the Sight View hide behind nearer ones; drawing them
+  // would change nothing but the size of the response.
+  const isSeen = seenInSightView(
+    inView.map((found) => ({ ...found, distanceMetres: distanceToRings(found.rings) })),
+    snapshot.heading,
+  );
+  const others = inView.filter(({ footprint }) => !isCandidate.has(footprint.id) && isSeen(footprint));
   // Shells make up most of the response: at Kröpcke in Hannover (8 Candidates, among them the
-  // Kröpcke-Center and the Marktkirche) it came to 94 KB, 16 KB gzipped (measured 2026-11-04).
-  const shells = await source.shellsOf(ranked.map(({ footprint }) => footprint.id));
+  // Kröpcke-Center and the Marktkirche, and 6 Surroundings) it came to 104 KB, 17 KB gzipped
+  // (measured 2026-11-04).
+  const shells = await source.shellsOf([...ranked, ...others].map(({ footprint }) => footprint.id));
+  const shellOf = ({ footprint, rings }: { footprint: Footprint; rings: Point[][] }) => {
+    const stored = shells.get(footprint.id);
+    return stored ? localShell(stored, toLocal) : blockShell(rings, footprint.heightMetres);
+  };
 
-  const candidates = ranked.map(({ footprint, rings, distanceMetres }, index) => {
+  const candidates = ranked.map((found, index) => {
+    const { footprint, distanceMetres } = found;
     const name = names?.nameOf(footprint);
     const withName = name ? { ...footprint, name } : footprint;
     const buildingType = footprint.functionCode ? buildingTypeOf(footprint.functionCode) : undefined;
-    const stored = shells.get(footprint.id);
     return {
       number: index + 1,
       footprint: withName,
-      shell: stored ? localShell(stored, toLocal) : blockShell(rings, footprint.heightMetres),
+      shell: shellOf(found),
       distanceMetres,
       location: locationOf(withName),
       ...(buildingType ? { buildingType } : {}),
     };
   });
-  return { candidates, warnings: warningsFor(snapshot, candidates.length), ...searched };
+  const surroundings = others.map((found) => ({ footprintId: found.footprint.id, shell: shellOf(found) }));
+  return { candidates, surroundings, warnings: warningsFor(snapshot, candidates.length), ...searched };
 }
 
 /** What the user should know about a Snapshot inside the Coverage Area, in the order to say it. */
@@ -162,25 +181,24 @@ function sightConeBoundary({ position, heading }: Snapshot): LatLng[] {
 }
 
 /**
- * Tests rings against the Sight Cone, with the user at its apex. A ring overlaps it when one of the ring's
- * edges passes through the cone, or when the whole cone lies inside the ring.
+ * Tests rings against a wedge reaching the Sight Cone's range, `halfAngle` degrees either side of
+ * the heading, with the user at its apex: the Sight Cone, or the wider Sight View. A ring
+ * overlaps it when one of the ring's edges passes through the wedge, or when the whole wedge
+ * lies inside the ring.
  */
-function sightConeOverlapTest(heading: number) {
+function wedgeOverlapTest(heading: number, halfAngle: number) {
   const pointInside = pointAt(heading, SIGHT_CONE_RANGE_METRES / 2);
-  const withinAngle = (p: Point) =>
-    Math.abs(angleBetween(bearingOf(p), heading)) <= SIGHT_CONE_HALF_ANGLE_DEGREES;
+  const withinAngle = (p: Point) => Math.abs(angleBetween(bearingOf(p), heading)) <= halfAngle;
 
-  /** Whether the bearings swept along a–b (taking the short way round) reach into the cone. */
-  const sweepReachesCone = (a: Point, b: Point) => {
+  /** Whether the bearings swept along a–b (taking the short way round) reach into the wedge. */
+  const sweepReachesWedge = (a: Point, b: Point) => {
     const start = angleBetween(bearingOf(a), heading);
     const end = start + angleBetween(bearingOf(b), bearingOf(a));
     const [low, high] = start <= end ? [start, end] : [end, start];
-    return [-360, 0, 360].some(
-      (turn) => low <= turn + SIGHT_CONE_HALF_ANGLE_DEGREES && high >= turn - SIGHT_CONE_HALF_ANGLE_DEGREES,
-    );
+    return [-360, 0, 360].some((turn) => low <= turn + halfAngle && high >= turn - halfAngle);
   };
 
-  const edgeEntersCone = (a: Point, b: Point) => {
+  const edgeEntersWedge = (a: Point, b: Point) => {
     const reachable = partWithinRange(a, b, SIGHT_CONE_RANGE_METRES);
     if (!reachable) return false;
     const [near, far] = reachable;
@@ -188,12 +206,12 @@ function sightConeOverlapTest(heading: number) {
     if (passesThroughUser(near, far)) {
       return [near, far].some((p) => !isUser(p) && withinAngle(p));
     }
-    return sweepReachesCone(near, far);
+    return sweepReachesWedge(near, far);
   };
 
   return {
     overlaps(ring: Point[]): boolean {
-      for (const [a, b] of edges(ring)) if (edgeEntersCone(a, b)) return true;
+      for (const [a, b] of edges(ring)) if (edgeEntersWedge(a, b)) return true;
       return ringContains(ring, pointInside);
     },
   };
@@ -247,6 +265,41 @@ function hiddenTest(inCone: FootprintInCone[], heading: number): (target: Footpr
     }
     return metAlongAny;
   };
+}
+
+/** Bearings this far apart sweep the Sight View for what the user can see. */
+const SIGHT_VIEW_SWEEP_DEGREES = 0.25;
+
+/**
+ * Tells which Footprints show in the Sight View: sweeping bearings across it, a Footprint shows
+ * when along one of them it rises above everything nearer, from eye height. As with Hidden
+ * Candidates, heights are above each building's own ground; one of unknown height always shows
+ * and hides nothing, nor does one the user stands in. One too narrow for any bearing to meet
+ * doesn't show.
+ */
+function seenInSightView(inView: FootprintInCone[], heading: number): (footprint: Footprint) => boolean {
+  const seen = new Set<Footprint>();
+  const steps = Math.round((2 * SIGHT_VIEW_HALF_ANGLE_DEGREES) / SIGHT_VIEW_SWEEP_DEGREES);
+  for (let step = 0; step <= steps; step++) {
+    const direction = pointAt(heading - SIGHT_VIEW_HALF_ANGLE_DEGREES + step * SIGHT_VIEW_SWEEP_DEGREES, 1);
+    const met = inView
+      .map((found) => ({ found, reach: entryAlong(found.rings, direction) }))
+      .filter(({ reach }) => reach < Infinity)
+      .sort((a, b) => a.reach - b.reach);
+    let skyline = -Infinity;
+    for (const { found, reach } of met) {
+      if (!isObstacle(found)) {
+        seen.add(found.footprint);
+        continue;
+      }
+      const top = elevationAngle(found.footprint.heightMetres, reach);
+      if (top > skyline) {
+        seen.add(found.footprint);
+        skyline = top;
+      }
+    }
+  }
+  return (footprint) => seen.has(footprint);
 }
 
 /** Evenly spread bearings across the part of the Sight Cone the rings cover, from edge to edge. */

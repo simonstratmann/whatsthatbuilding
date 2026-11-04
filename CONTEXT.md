@@ -67,5 +67,5 @@ A drawing of the Candidates and their Surroundings as seen from the user's posit
 _Avoid_: 3D view, render, preview
 
 **Surroundings**:
-Buildings within ±30° of the heading and the Sight Cone's range that aren't Candidates. The Sight View draws them in grey so the user can orient themselves; they can't be chosen.
+Buildings within ±30° of the heading and the Sight Cone's range that aren't Candidates and that nearer buildings don't hide completely. The Sight View draws them in grey so the user can orient themselves; they can't be chosen.
 _Avoid_: Context, background buildings

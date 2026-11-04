@@ -130,8 +130,16 @@ export interface Candidate {
  */
 export type IdentificationWarning = "outside-coverage-area" | "imprecise-location" | "compass-uncalibrated" | "nothing-found";
 
+/** A building of the Surroundings: drawn grey in the Sight View, never offered as a Candidate. */
+export interface SurroundingsBuilding {
+  footprintId: string;
+  shell: BuildingShell;
+}
+
 export interface Identification {
   candidates: Candidate[];
+  /** The buildings within ±30° of the heading and the Sight Cone's range that aren't Candidates. */
+  surroundings: SurroundingsBuilding[];
   warnings: IdentificationWarning[];
   /** The Sight Cone that was searched: the user's position, then the far arc from left to right. */
   sightCone: LatLng[];

@@ -533,6 +533,72 @@ describe("identify", () => {
     expect(shell.filter((s) => s.kind === "wall")).toHaveLength(7);
   });
 
+  it("gives as Surroundings the buildings within ±30° and 500 m that aren't Candidates", async () => {
+    const ahead = building("ahead", -5, 100, 5, 110);
+    // About 25° to the right and left: outside the Sight Cone, inside the Sight View.
+    const right = building("right", 40, 95, 50, 105);
+    const left = building("left", -50, 95, -40, 105);
+    // About 40° to the right, beyond 500 m, and behind the user.
+    const wide = building("wide", 75, 95, 85, 105);
+    const far = building("far", 240, 470, 250, 480);
+    const behind = building("behind", -5, -110, 5, -100);
+
+    const { candidates, surroundings } = await identify(facing(0), sourceOf(ahead, right, left, wide, far, behind));
+
+    expect(candidates.map((c) => c.footprint.id)).toEqual(["ahead"]);
+    expect(surroundings.map((s) => s.footprintId).sort()).toEqual(["left", "right"]);
+  });
+
+  it("leaves out Surroundings that nearer buildings hide completely, but keeps a tower showing over them", async () => {
+    // A long, tall block 25° to the right, with a low house and a tall tower behind it.
+    const block = building("block", 25, 60, 60, 70, { heightMetres: 20 });
+    const hiddenHouse = building("hidden house", 40, 100, 50, 110, { heightMetres: 8 });
+    const tower = building("tower", 70, 150, 80, 160, { heightMetres: 80 });
+    const ahead = building("ahead", -5, 100, 5, 110, { heightMetres: 10 });
+
+    const { surroundings } = await identify(facing(0), sourceOf(ahead, block, hiddenHouse, tower));
+
+    expect(surroundings.map((s) => s.footprintId).sort()).toEqual(["block", "tower"]);
+  });
+
+  it("never gives a Candidate as Surroundings, but does give a building the list has no room for", async () => {
+    const houses = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => building(`house-${n}`, -5, n * 30, 5, n * 30 + 10));
+
+    const { candidates, surroundings } = await identify(facing(0), sourceOf(...houses));
+
+    const candidateIds = candidates.map((c) => c.footprint.id);
+    expect(candidateIds).toHaveLength(8);
+    expect(surroundings.map((s) => s.footprintId)).toEqual(["house-9"]);
+  });
+
+  it("gives each Surroundings building its Shell in metres around the user, or a block", async () => {
+    const at = (east: number, north: number, elevation: number) => ({ ...offset(east, north), elevation });
+    const shell: StoredShell = [{ kind: "roof", ring: [at(40, 95, 60), at(50, 95, 60), at(45, 105, 65)] }];
+    const right = building("right", 40, 95, 50, 105, { heightMetres: 8 });
+    const left = building("left", -50, 95, -40, 105, { heightMetres: 6 });
+    const source: FootprintSource = {
+      ...sourceOf(right, left),
+      shellsOf: async (ids) => new Map(ids.includes("right") ? [["right", shell]] : []),
+    };
+
+    const { surroundings } = await identify(facing(0), source);
+
+    expect(surroundings.find((s) => s.footprintId === "right")?.shell).toEqual([
+      { kind: "roof", ring: [[40, 95, 0], [50, 95, 0], [45, 105, 5]] },
+    ]);
+    expect(surroundings.find((s) => s.footprintId === "left")?.shell.find((s) => s.kind === "roof")?.ring[0]).toEqual([
+      -50, 95, 6,
+    ]);
+  });
+
+  it("gives no Surroundings outside the Coverage Area", async () => {
+    const source: FootprintSource = { ...sourceOf(building("right", 40, 95, 50, 105)), covers: async () => false };
+
+    const { surroundings } = await identify(facing(0), source);
+
+    expect(surroundings).toEqual([]);
+  });
+
   it("describes the Sight Cone it searched: from the user out to 500 m, ±15° around the heading", async () => {
     const { sightCone } = await identify(facing(355), sourceOf());
 

@@ -7,8 +7,8 @@ const NUMBER_RADIUS = 34;
 
 /**
  * The Sight View in SVG: each Candidate's walls and roof, in the mini-map's colours, with its
- * number above it, and faint lines for the Line of Sight and the Sight Cone's edges. Tapping a
- * Candidate or its number calls `onTap`.
+ * number above it, the Surroundings in grey, and faint lines for the Line of Sight and the
+ * Sight Cone's edges. Tapping a Candidate or its number calls `onTap`; the Surroundings ignore taps.
  */
 export function drawSightView(
   element: HTMLElement,
@@ -40,12 +40,13 @@ function drawInto(svg: SVGSVGElement, view: SightView): void {
   svg.setAttribute("viewBox", `0 0 ${view.width} ${view.height}`);
   svg.replaceChildren();
 
-  for (const { points, surface, number, chosen } of view.polygons) {
+  for (const { points, surface, role, number, chosen } of view.polygons) {
     svg.append(
       element("polygon", {
         points: points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" "),
-        class: `building candidate ${surface}${chosen ? " chosen" : ""}`,
-        "data-number": String(number),
+        class: `building ${role} ${surface}${chosen ? " chosen" : ""}`,
+        // Only Candidates can be chosen: a tap on the Surroundings finds no number.
+        ...(number === undefined ? {} : { "data-number": String(number) }),
       }),
     );
   }

@@ -110,6 +110,28 @@ describe("POST /api/identify", () => {
     });
   });
 
+  it("gives the Surroundings with their Footprint IDs and Building Shells, and nothing else", async () => {
+    // About 30° to the right of the heading: in the Sight View, outside the Sight Cone.
+    const at = (east: number, north: number) => offsetFrom(ORIGIN, east, north);
+    const beside: Footprint = {
+      id: "beside",
+      rings: [[at(25, 50), at(35, 50), at(35, 60), at(25, 60)]],
+      centre: at(30, 55),
+      heightMetres: 9,
+    };
+    const url = await start(sourceOf(TOWN_HALL, beside));
+
+    const body = (await (await post(`${url}/api/identify`, facingNorth)).json()) as IdentifyResponse;
+
+    if (!("identification" in body)) throw new Error(`expected an identification, got ${JSON.stringify(body)}`);
+    expect(body.identification.candidates.map((c) => c.footprint.id)).toEqual(["town-hall"]);
+    expect(body.identification.surroundings).toHaveLength(1);
+    const [surrounding] = body.identification.surroundings;
+    expect(Object.keys(surrounding!).sort()).toEqual(["footprintId", "shell"]);
+    expect(surrounding!.footprintId).toBe("beside");
+    expect(surrounding!.shell).toContainEqual({ kind: "roof", ring: [[25, 50, 9], [35, 50, 9], [35, 60, 9], [25, 60, 9]] });
+  });
+
   it("answers a Snapshot outside the Coverage Area with its warning and no Candidates", async () => {
     const url = await start({ ...sourceOf(TOWN_HALL), covers: async () => false });
 
