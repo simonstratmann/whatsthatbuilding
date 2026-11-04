@@ -1,4 +1,40 @@
-import { edges, type BuildingShell, type Point, type ShellPoint } from "@whatisthatbuilding/shared";
+import {
+  edges,
+  type BuildingShell,
+  type LatLng,
+  type Point,
+  type ShellPoint,
+  type SurfaceKind,
+} from "@whatisthatbuilding/shared";
+
+/** A point of a Building Shell as stored: where it is, and its elevation above sea level in metres. */
+export interface ShellPosition extends LatLng {
+  elevation: number;
+}
+
+export interface StoredSurface {
+  kind: SurfaceKind;
+  /** The outer ring, without its closing point. */
+  ring: ShellPosition[];
+}
+
+/** A building's walls, roof and ground as the building model has them. */
+export type StoredShell = StoredSurface[];
+
+/**
+ * A stored Shell in metres around the user, as `toLocal` places positions, standing on its own
+ * ground: "up" is measured from its lowest point.
+ */
+export function localShell(shell: StoredShell, toLocal: (p: LatLng) => Point): BuildingShell {
+  const ground = Math.min(...shell.flatMap(({ ring }) => ring.map((p) => p.elevation)));
+  return shell.map(({ kind, ring }) => ({
+    kind,
+    ring: ring.map((p): ShellPoint => {
+      const { x, y } = toLocal(p);
+      return [rounded(x), rounded(y), rounded(p.elevation - ground)];
+    }),
+  }));
+}
 
 /** For a Footprint whose height the building model doesn't give: about two storeys and a roof. */
 const DEFAULT_HEIGHT_METRES = 10;

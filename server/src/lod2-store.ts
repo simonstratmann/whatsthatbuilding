@@ -1,13 +1,28 @@
 import type { Footprint, LatLng } from "@whatisthatbuilding/shared";
 import pg from "pg";
+import type { SurfaceKind } from "@whatisthatbuilding/shared";
+import type { StoredShell } from "./building-shells.ts";
 import type { FootprintSource } from "./identification.ts";
-import type { Lod2Tile } from "./lod2-parser.ts";
+import type { Lod2Surface, Lod2Tile } from "./lod2-parser.ts";
 
 /** Which state's LoD2 model a tile belongs to; a new import replaces all tiles of its dataset. */
 export type Lod2Dataset = "hamburg" | "niedersachsen";
 
+/**
+ * What a tile's buildings carry, by the version of the import that stored them: 1 is Footprints
+ * only, 2 adds Building Shells. A tile stored at an older version is read again from the file cache.
+ */
+export const LOD2_SCHEMA_VERSION = 2;
+
+/** A stored tile, by name and dataset. */
+export interface StoredTile {
+  name: string;
+  dataset: Lod2Dataset;
+}
+
 /** The LoD2 building model in PostGIS: the Footprint source for identification, and where imports go. */
 export interface Lod2Store extends FootprintSource {
+  shellsOf(ids: string[]): Promise<Map<string, StoredShell>>;
   /**
    * Replaces every tile of `dataset`, and the buildings in them, with `tiles`, in one transaction:
    * until it commits, and if it fails, the previous import stays in use.
@@ -18,6 +33,13 @@ export interface Lod2Store extends FootprintSource {
    * process may have got there first); returns how many buildings went in.
    */
   addTile(dataset: Lod2Dataset, tile: Lod2Tile): Promise<number>;
+  /**
+   * Swaps a stored tile and its buildings for `tile`, in one transaction, at the current schema
+   * version; returns how many buildings went in.
+   */
+  replaceTile(dataset: Lod2Dataset, tile: Lod2Tile): Promise<number>;
+  /** The tiles within `radiusMetres` of the centre stored at an older schema version. */
+  outdatedTiles(centre: LatLng, radiusMetres: number): Promise<StoredTile[]>;
   /**
    * Records a tile the state's download server doesn't have, so nobody asks for it again.
    * Delete its row from lod2_tile_missing to have it asked for once more.
@@ -60,6 +82,11 @@ const SCHEMA = `
   -- Distances in metres need geography; the index has to be on the same expression.
   CREATE INDEX IF NOT EXISTS footprint_outline ON footprint USING gist ((outline::geography));
   CREATE INDEX IF NOT EXISTS footprint_tile ON footprint (tile);
+  -- Added with Building Shells: tiles stored before them are at version 1.
+  ALTER TABLE lod2_tile ADD COLUMN IF NOT EXISTS schema_version integer NOT NULL DEFAULT 1;
+  -- One polygon per surface, in the order of shell_kinds; elevations above sea level.
+  ALTER TABLE footprint ADD COLUMN IF NOT EXISTS shell geometry(MultiPolygonZ, 4326);
+  ALTER TABLE footprint ADD COLUMN IF NOT EXISTS shell_kinds text[];
 `;
 
 interface FootprintRow {
@@ -114,6 +141,35 @@ export function lod2Store(databaseUrl: string): Lod2Store {
       return rows.map(toFootprint);
     },
 
+    async shellsOf(ids) {
+      await ready();
+      const { rows } = await pool.query<{ id: string; shell: string; shell_kinds: SurfaceKind[] }>(
+        `SELECT id, ST_AsGeoJSON(shell, 8) AS shell, shell_kinds FROM footprint WHERE id = ANY ($1::text[]) AND shell IS NOT NULL`,
+        [ids],
+      );
+      return new Map(rows.map((row) => [row.id, toStoredShell(row.shell, row.shell_kinds)]));
+    },
+
+    async outdatedTiles({ lat, lon }, radiusMetres) {
+      await ready();
+      const { rows } = await pool.query<StoredTile>(
+        `SELECT name, dataset FROM lod2_tile
+          WHERE schema_version < $4
+            AND ST_DWithin(extent::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
+          ORDER BY name`,
+        [lon, lat, radiusMetres, LOD2_SCHEMA_VERSION],
+      );
+      return rows;
+    },
+
+    async replaceTile(dataset, tile) {
+      await ready();
+      return inTransaction(pool, async (client) => {
+        await client.query("DELETE FROM lod2_tile WHERE name = $1 AND dataset = $2", [tile.name, dataset]);
+        return insertTile(client, dataset, tile);
+      });
+    },
+
     async replaceTiles(dataset, tiles) {
       await ready();
       return inTransaction(pool, async (client) => {
@@ -164,21 +220,23 @@ async function insertTile(
 ): Promise<number> {
   // With unlessThere, a second insert of the same name waits here until the first commits, then does nothing.
   const { rowCount: inserted } = await client.query(
-    `INSERT INTO lod2_tile (name, dataset, extent) VALUES ($1, $2, ST_SetSRID(ST_GeomFromGeoJSON($3), 4326))
+    `INSERT INTO lod2_tile (name, dataset, extent, schema_version) VALUES ($1, $2, ST_SetSRID(ST_GeomFromGeoJSON($3), 4326), $4)
      ${unlessThere ? "ON CONFLICT (name) DO NOTHING" : ""}`,
-    [name, dataset, JSON.stringify({ type: "Polygon", coordinates: [closed(extent)] })],
+    [name, dataset, JSON.stringify({ type: "Polygon", coordinates: [closed(extent)] }), LOD2_SCHEMA_VERSION],
   );
   if (!inserted) return 0;
   const stored = buildings.filter((b) => b.rings.length > 0);
   if (stored.length === 0) return 0;
   // One statement per tile: each column goes in as an array.
   const { rowCount } = await client.query(
-    `INSERT INTO footprint (id, tile, outline, centre, height_metres, function_code, street, house_number, city)
-     SELECT id, $1, outline, ST_Centroid(outline), height_metres, function_code, street, house_number, city
+    `INSERT INTO footprint (id, tile, outline, centre, height_metres, function_code, street, house_number, city, shell, shell_kinds)
+     SELECT id, $1, outline, ST_Centroid(outline), height_metres, function_code, street, house_number, city,
+            -- The Shell arrives in UTM32 metres, as the building model has it.
+            ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(shell), 25832), 4326), string_to_array(shell_kinds, ',')
        FROM (SELECT id, ST_SetSRID(ST_GeomFromGeoJSON(outline), 4326) AS outline,
-                    height_metres, function_code, street, house_number, city
-               FROM unnest($2::text[], $3::text[], $4::float8[], $5::text[], $6::text[], $7::text[], $8::text[])
-                 AS b (id, outline, height_metres, function_code, street, house_number, city)) AS parsed
+                    height_metres, function_code, street, house_number, city, shell, shell_kinds
+               FROM unnest($2::text[], $3::text[], $4::float8[], $5::text[], $6::text[], $7::text[], $8::text[], $9::text[], $10::text[])
+                 AS b (id, outline, height_metres, function_code, street, house_number, city, shell, shell_kinds)) AS parsed
      -- A building on a tile boundary could be in both tiles; the first one counts.
      ON CONFLICT (id) DO NOTHING`,
     [
@@ -190,6 +248,8 @@ async function insertTile(
       stored.map((b) => b.address?.street ?? null),
       stored.map((b) => b.address?.houseNumber ?? null),
       stored.map((b) => b.address?.city ?? null),
+      stored.map((b) => (b.shell ? JSON.stringify({ type: "MultiPolygon", coordinates: b.shell.map(({ ring }) => [closed3d(ring)]) }) : null)),
+      stored.map((b) => (b.shell ? b.shell.map(({ kind }) => kind).join(",") : null)),
     ],
   );
   return rowCount ?? 0;
@@ -211,6 +271,20 @@ function toFootprint(row: FootprintRow): Footprint {
     ...(row.function_code ? { functionCode: row.function_code } : {}),
     ...(Object.keys(address).length > 0 ? { address } : {}),
   };
+}
+
+function toStoredShell(geoJson: string, kinds: SurfaceKind[]): StoredShell {
+  const { coordinates } = JSON.parse(geoJson) as { coordinates: [number, number, number][][][] };
+  return coordinates.map(([outer], i) => ({
+    kind: kinds[i]!,
+    // Without its closing point.
+    ring: (outer ?? []).slice(0, -1).map(([lon, lat, elevation]) => ({ lat, lon, elevation })),
+  }));
+}
+
+/** A Shell's ring as GeoJSON wants it, still in UTM32: ending where it starts. */
+function closed3d(ring: Lod2Surface["ring"]): number[][] {
+  return [...ring, ring[0]!];
 }
 
 /** A ring as GeoJSON wants it: [lon, lat] pairs, ending where it starts. */

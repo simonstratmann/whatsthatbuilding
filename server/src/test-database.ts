@@ -15,3 +15,15 @@ export async function freshDatabase(): Promise<string> {
   url.pathname = `/${name}`;
   return url.href;
 }
+
+/** Makes the stored LoD2 tiles look as an import from before Building Shells left them. */
+export async function ageLod2Tiles(databaseUrl: string): Promise<void> {
+  const client = new pg.Client({ connectionString: databaseUrl });
+  await client.connect();
+  try {
+    await client.query("UPDATE lod2_tile SET schema_version = 1");
+    await client.query("UPDATE footprint SET shell = NULL, shell_kinds = NULL");
+  } finally {
+    await client.end();
+  }
+}

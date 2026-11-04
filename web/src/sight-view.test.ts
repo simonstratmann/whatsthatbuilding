@@ -168,6 +168,14 @@ describe("sightView", () => {
     expect(number!.x).toBeLessThanOrEqual(Math.max(...spireXs) + 1e-6);
   });
 
+  it("keeps a number inside the view when its building's highest point is at the edge", () => {
+    // A roof sloping up to the left, cut off by the left edge of the view.
+    const view = sightView(identification(0, candidate(1, box(-30, 60, { width: 40, height: 15 }))));
+
+    const [number] = view.numbers;
+    expect(number!.x).toBeGreaterThan(20);
+  });
+
   it("gives the Line of Sight in the middle and the Sight Cone's edges at ±15°", () => {
     const view = sightView(identification(0, candidate(1, box(0, 100))));
 

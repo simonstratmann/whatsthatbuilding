@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Footprint, LatLng, Snapshot } from "@whatisthatbuilding/shared";
+import type { StoredShell } from "./building-shells.ts";
 import { identify, type FootprintSource, type LabelSource } from "./identification.ts";
 import { metresFrom, offsetFrom } from "./test-geo.ts";
 
@@ -29,7 +30,7 @@ function building(
 }
 
 function sourceOf(...footprints: Footprint[]): FootprintSource {
-  return { covers: async () => true, footprintsAround: async () => footprints };
+  return { covers: async () => true, footprintsAround: async () => footprints, shellsOf: async () => new Map() };
 }
 
 /** A Label source that knows these names, by Footprint ID. */
@@ -387,6 +388,7 @@ describe("identify", () => {
     const source: FootprintSource = {
       covers: async (position) => (asked.push(position), false),
       footprintsAround: async () => [shop],
+      shellsOf: async () => new Map(),
     };
 
     const { candidates, warnings, lineOfSight } = await identify(facing(0), source);
@@ -406,6 +408,7 @@ describe("identify", () => {
       // Answers only once the Footprints have been asked for.
       covers: async () => (await asked, true),
       footprintsAround: async () => (footprintsAsked(), [shop]),
+      shellsOf: async () => new Map(),
     };
 
     const { candidates } = await identify(facing(0), source);
@@ -419,6 +422,7 @@ describe("identify", () => {
       footprintsAround: async () => {
         throw new Error("download failed");
       },
+      shellsOf: async () => new Map(),
     };
 
     const { warnings } = await identify(facing(0), source);
@@ -432,6 +436,7 @@ describe("identify", () => {
       footprintsAround: async () => {
         throw new Error("download failed");
       },
+      shellsOf: async () => new Map(),
     };
 
     await expect(identify(facing(0), source)).rejects.toThrow(/download failed/);
@@ -468,6 +473,36 @@ describe("identify", () => {
       [[10, 110, 0], [-10, 110, 0], [-10, 110, 12.3], [10, 110, 12.3]],
       [[-10, 110, 0], [-10, 90, 0], [-10, 90, 12.3], [-10, 110, 12.3]],
     ]);
+  });
+
+  it("gives a Candidate its stored Building Shell, in metres around the user, standing on its own ground", async () => {
+    const chapel = building("chapel", -5, 95, 5, 105, { heightMetres: 12 });
+    // On a hillside 40 m above sea level, with a gable roof running north–south.
+    const at = (east: number, north: number, elevation: number) => ({ ...offset(east, north), elevation });
+    const shell: StoredShell = [
+      { kind: "ground", ring: [at(-5, 95, 40.03), at(5, 95, 40.03), at(5, 105, 40), at(-5, 105, 40)] },
+      { kind: "roof", ring: [at(-5, 95, 46), at(0, 95, 52.04), at(0, 105, 52.04), at(-5, 105, 46)] },
+      { kind: "wall", ring: [at(-5, 95, 40.03), at(5, 95, 40.03), at(5, 95, 46), at(0, 95, 52.04), at(-5, 95, 46)] },
+    ];
+    const source: FootprintSource = { ...sourceOf(chapel), shellsOf: async (ids) => new Map(ids.includes("chapel") ? [["chapel", shell]] : []) };
+
+    const { candidates } = await identify(facing(0), source);
+
+    expect(candidates[0]?.shell).toEqual([
+      { kind: "ground", ring: [[-5, 95, 0], [5, 95, 0], [5, 105, 0], [-5, 105, 0]] },
+      { kind: "roof", ring: [[-5, 95, 6], [0, 95, 12], [0, 105, 12], [-5, 105, 6]] },
+      { kind: "wall", ring: [[-5, 95, 0], [5, 95, 0], [5, 95, 6], [0, 95, 12], [-5, 95, 6]] },
+    ]);
+  });
+
+  it("gives a block to a Candidate the source has no Shell for", async () => {
+    const shed = building("shed", -5, 95, 5, 105, { heightMetres: 3 });
+    const source: FootprintSource = { ...sourceOf(shed), shellsOf: async () => new Map() };
+
+    const { candidates } = await identify(facing(0), source);
+
+    expect(candidates[0]?.shell.filter((s) => s.kind === "wall")).toHaveLength(4);
+    expect(candidates[0]?.shell.find((s) => s.kind === "roof")?.ring[0]).toEqual([-5, 95, 3]);
   });
 
   it("raises a Footprint of unknown height to a default height, so it can still be drawn", async () => {

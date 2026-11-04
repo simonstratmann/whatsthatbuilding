@@ -52,6 +52,8 @@ const MAX_HEIGHT = WIDTH * 0.85;
 const HEADROOM = 110;
 /** How far above a Candidate's highest point its number sits. */
 const NUMBER_GAP = 44;
+/** How far a number's middle stays from the edges, so it isn't cut off. */
+const NUMBER_MARGIN = 40;
 /** For a view with nothing in it. */
 const EMPTY_HEIGHT = WIDTH * 0.4;
 
@@ -113,7 +115,12 @@ export function sightView({ candidates, lineOfSight }: Identification, chosen?: 
   for (const { number, surfaces } of buildings) {
     const highestPoint = surfaces.flatMap(({ points }) => points).reduce((a, b) => (b.y > a.y ? b : a));
     const [x, y] = toView(highestPoint);
-    numbers.push({ number, x, y: Math.max(y - NUMBER_GAP, NUMBER_GAP), chosen: number === chosen });
+    numbers.push({
+      number,
+      x: Math.min(Math.max(x, NUMBER_MARGIN), WIDTH - NUMBER_MARGIN),
+      y: Math.max(y - NUMBER_GAP, NUMBER_MARGIN),
+      chosen: number === chosen,
+    });
   }
 
   const edgeX = (WIDTH / 2) * (Math.tan(radians(SIGHT_CONE_HALF_ANGLE_DEGREES)) / TAN_HALF_VIEW);

@@ -89,6 +89,7 @@ export function recordingSource(source: FootprintSource, record: RequestRecord):
       record.footprints = await source.footprintsAround(centre, radiusMetres);
       return record.footprints;
     },
+    shellsOf: (ids) => source.shellsOf(ids),
   };
 }
 

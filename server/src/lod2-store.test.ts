@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { LatLng } from "@whatisthatbuilding/shared";
-import type { Lod2Building, Lod2Tile } from "./lod2-parser.ts";
+import type { Lod2Building, Lod2Surface, Lod2Tile, Utm32Point } from "./lod2-parser.ts";
 import { lod2Store, type Lod2Store } from "./lod2-store.ts";
-import { freshDatabase } from "./test-database.ts";
+import { ageLod2Tiles, freshDatabase } from "./test-database.ts";
 import { offsetFrom } from "./test-geo.ts";
+import { fromUtm32, toUtm32 } from "./utm32.ts";
 
 // Hamburg Rathausmarkt; the user stands here.
 const ORIGIN: LatLng = { lat: 53.5503, lon: 9.9925 };
@@ -31,9 +32,24 @@ function closeTo(degrees: number) {
   return expect.closeTo(degrees, 7);
 }
 
+/** A point `east` / `north` metres from ORIGIN and `elevation` metres above sea level, in UTM32. */
+function utm(east: number, north: number, elevation: number): Utm32Point {
+  const { east: e, north: n } = toUtm32(offset(east, north));
+  return [e, n, elevation];
+}
+
+/** A 10 m cube's Shell, ground at 20 m above sea level, from (0, 10) to (10, 20). */
+const CUBE: Lod2Surface[] = [
+  { kind: "ground", ring: [utm(0, 10, 20), utm(10, 10, 20), utm(10, 20, 20), utm(0, 20, 20)] },
+  { kind: "roof", ring: [utm(0, 10, 30), utm(10, 10, 30), utm(10, 20, 30), utm(0, 20, 30)] },
+  { kind: "wall", ring: [utm(0, 10, 20), utm(10, 10, 20), utm(10, 10, 30), utm(0, 10, 30)] },
+];
+
 let store: Lod2Store;
+let databaseUrl: string;
 beforeAll(async () => {
-  store = lod2Store(await freshDatabase());
+  databaseUrl = await freshDatabase();
+  store = lod2Store(databaseUrl);
 });
 afterAll(async () => {
   await store.close();
@@ -157,5 +173,45 @@ describe("lod2Store", () => {
     // A missing tile covers nothing.
     await store.replaceTiles("niedersachsen", tiles());
     expect(await store.covers(ORIGIN)).toBe(false);
+  });
+
+  it("keeps each building's Shell, in WGS84 with its elevations, and gives it back by Footprint ID", async () => {
+    await store.replaceTiles("hamburg", tiles(tile("tile-a", [building("cube", 0, 10, 10, 20, { shell: CUBE }), building("shed", 30, 10, 40, 20)])));
+
+    const shells = await store.shellsOf(["cube", "shed", "unknown"]);
+
+    expect([...shells.keys()]).toEqual(["cube"]);
+    const shell = shells.get("cube")!;
+    expect(shell.map((s) => s.kind)).toEqual(["ground", "roof", "wall"]);
+    for (const [i, surface] of CUBE.entries()) {
+      expect(shell[i]!.ring).toEqual(
+        surface.ring.map(([east, north, elevation]) => {
+          const { lat, lon } = fromUtm32({ east, north });
+          return { lat: closeTo(lat), lon: closeTo(lon), elevation: expect.closeTo(elevation, 3) };
+        }),
+      );
+    }
+  });
+
+  it("stores tiles at the current schema version, so none needs reading again", async () => {
+    await store.replaceTiles("hamburg", tiles(tile("hh", [building("cube", 0, 10, 10, 20, { shell: CUBE })])));
+    await store.addTile("niedersachsen", tile("ni", [], [1000, 0, 2000, 1000]));
+
+    expect(await store.outdatedTiles(ORIGIN, 5000)).toEqual([]);
+  });
+
+  it("names the tiles near a position stored before Building Shells, and replaces one in place", async () => {
+    await store.replaceTiles("hamburg", tiles(tile("hh", [building("cube", 0, 10, 10, 20)])));
+    await store.addTile("niedersachsen", tile("ni-far", [], [5000, 0, 6000, 1000]));
+    await ageLod2Tiles(databaseUrl);
+
+    expect(await store.outdatedTiles(ORIGIN, 500)).toEqual([{ name: "hh", dataset: "hamburg" }]);
+
+    const buildings = await store.replaceTile("hamburg", tile("hh", [building("cube", 0, 10, 10, 20, { shell: CUBE })]));
+
+    expect(buildings).toBe(1);
+    expect(await store.outdatedTiles(ORIGIN, 500)).toEqual([]);
+    expect([...(await store.shellsOf(["cube"])).keys()]).toEqual(["cube"]);
+    expect(await store.covers(ORIGIN)).toBe(true);
   });
 });

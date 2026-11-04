@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { parseLod2Tile } from "./lod2-parser.ts";
+import { parseLod2Tile, type Lod2Building } from "./lod2-parser.ts";
 
 // Three buildings cut from Hamburg's tile LoD2_32_565_5933_1_HH (release 2026-04-28), unchanged.
 // Expected positions are PostGIS's ST_Transform of the GML's EPSG:25832 coordinates.
@@ -26,7 +26,7 @@ describe("parseLod2Tile", () => {
   });
 
   it("turns each building into a Footprint with its height, function and address", () => {
-    expect(tile.buildings.map(({ rings, ...rest }) => rest)).toEqual([
+    expect(tile.buildings.map(({ rings, shell, ...rest }) => rest)).toEqual([
       {
         id: "DEHHALKA90000Hr8",
         heightMetres: 35.441,
@@ -66,7 +66,41 @@ describe("parseLod2Tile", () => {
       ],
     ]);
   });
+
+  it("keeps each building's Shell: its wall, roof and ground surfaces in 3D, in UTM32 metres", () => {
+    expect(tile.buildings.map((b) => surfaceCounts(b.shell))).toEqual([
+      { wall: 12, roof: 4, ground: 1 },
+      { wall: 5, roof: 1, ground: 1 },
+      { wall: 4, roof: 1, ground: 1 },
+    ]);
+    const [courtyardBlock] = tile.buildings;
+    const firstRoof = courtyardBlock?.shell?.find((s) => s.kind === "roof");
+    expect(firstRoof?.ring[0]).toEqual([565238.252, 5933486.305, 29.473]);
+    expect(Math.max(...heightsOf(courtyardBlock?.shell, "roof"))).toBe(39.893);
+    expect(Math.min(...heightsOf(courtyardBlock?.shell, "ground"))).toBe(4.452);
+  });
+
+  it("drops a surface's closing point and its holes", () => {
+    for (const { shell } of tile.buildings) {
+      for (const { ring } of shell ?? []) {
+        expect(ring.length).toBeGreaterThanOrEqual(3);
+        expect(ring[0]).not.toEqual(ring.at(-1));
+      }
+    }
+    // Rödingsmarkt 16's ground has a courtyard: one ring all the same.
+    expect(tile.buildings[0]?.shell?.filter((s) => s.kind === "ground")).toHaveLength(1);
+  });
 });
+
+function surfaceCounts(shell: Lod2Building["shell"]): Record<string, number> {
+  const counts: Record<string, number> = { wall: 0, roof: 0, ground: 0 };
+  for (const { kind } of shell ?? []) counts[kind] = (counts[kind] ?? 0) + 1;
+  return counts;
+}
+
+function heightsOf(shell: Lod2Building["shell"], kind: string): number[] {
+  return (shell ?? []).filter((s) => s.kind === kind).flatMap((s) => s.ring.map(([, , height]) => height));
+}
 
 describe("parseLod2Tile on Niedersachsen's data", () => {
   const tile = parseLod2Tile(niedersachsenExcerpt);
@@ -78,7 +112,7 @@ describe("parseLod2Tile on Niedersachsen's data", () => {
   });
 
   it("turns each building into a Footprint with its height, function and address", () => {
-    expect(tile.buildings.map(({ rings, ...rest }) => rest)).toEqual([
+    expect(tile.buildings.map(({ rings, shell, ...rest }) => rest)).toEqual([
       {
         id: "DENILD4300009SgH",
         heightMetres: 16.589,
@@ -103,5 +137,15 @@ describe("parseLod2Tile on Niedersachsen's data", () => {
     expect(garages?.rings).toHaveLength(4);
     expect(garages?.rings[0]?.[0]).toEqual({ lat: closeTo(52.3830163), lon: closeTo(9.7436962) });
     expect(garages?.rings[1]?.[0]).toEqual({ lat: closeTo(52.3830846), lon: closeTo(9.7434967) });
+  });
+
+  it("keeps the Shell of a building and of each of its building parts", () => {
+    expect(tile.buildings.map((b) => surfaceCounts(b.shell))).toEqual([
+      { wall: 6, roof: 2, ground: 1 },
+      { wall: 21, roof: 4, ground: 4 },
+    ]);
+    const [house, garages] = tile.buildings;
+    expect(house?.shell?.find((s) => s.kind === "roof")?.ring[0]).toEqual([550607.299, 5803842.094, 65.715]);
+    expect(Math.max(...heightsOf(garages?.shell, "roof"))).toBe(57.596);
   });
 });

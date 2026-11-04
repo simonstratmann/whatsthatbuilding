@@ -1,9 +1,22 @@
-import type { Address, Footprint, LatLng } from "@whatisthatbuilding/shared";
+import type { Address, Footprint, LatLng, SurfaceKind } from "@whatisthatbuilding/shared";
 import { SaxesParser, type SaxesTagNS } from "saxes";
 import { fromUtm32 } from "./utm32.ts";
 
+/** A point of the LoD2 model as it gives it: metres east and north in UTM32, and its elevation. */
+export type Utm32Point = [east: number, north: number, elevation: number];
+
+/** One surface of a Building Shell, still in the LoD2 model's coordinates. */
+export interface Lod2Surface {
+  kind: SurfaceKind;
+  /** The outer ring, without its closing point. */
+  ring: Utm32Point[];
+}
+
 /** A building as the LoD2 model describes it; the store adds the centre. */
-export type Lod2Building = Omit<Footprint, "centre" | "name">;
+export type Lod2Building = Omit<Footprint, "centre" | "name"> & {
+  /** Its walls, roof and ground, and those of its parts; absent when the model has none in 3D. */
+  shell?: Lod2Surface[];
+};
 
 /** One tile of the LoD2 building model: a 1 km square of UTM32 and the buildings in it. */
 export interface Lod2Tile {
@@ -22,6 +35,7 @@ const XAL = "urn:oasis:names:tc:ciq:xsdschema:xAL:2.0";
 interface BuildingInProgress {
   id: string;
   rings: LatLng[][];
+  shell: Lod2Surface[];
   /** Height, function and addresses of the building itself, then of each of its parts. */
   heights: number[];
   functionCodes: string[];
@@ -32,7 +46,9 @@ interface BuildingInProgress {
  * Reads one tile of CityGML 1.0 in the AdV LoD2 profile, as LGLN and LGV Hamburg publish it.
  * A building's Footprint is the outer rings of its ground surfaces (and those of its parts),
  * reprojected from EPSG:25832 to WGS84 on the ground plane: the coordinates' elevations are
- * dropped, and the building's height comes from its measuredHeight.
+ * dropped, and the building's height comes from its measuredHeight. Its Shell is the outer
+ * rings of its wall, roof and ground surfaces (and those of its parts), kept as the model
+ * gives them: UTM32 metres with their elevations.
  */
 export function parseLod2Tile(gml: string): Lod2Tile {
   const parser = new SaxesParser({ xmlns: true });
@@ -55,7 +71,7 @@ export function parseLod2Tile(gml: string): Lod2Tile {
     open.push(element);
     text = "";
     if (element === "bldg:Building" && !building) {
-      building = { id: attribute(tag, GML, "id") ?? "", rings: [], heights: [], functionCodes: [], addresses: [] };
+      building = { id: attribute(tag, GML, "id") ?? "", rings: [], shell: [], heights: [], functionCodes: [], addresses: [] };
     } else if (element === "bldg:address" && building) {
       address = {};
     } else if (element === "gml:posList") {
@@ -81,11 +97,19 @@ export function parseLod2Tile(gml: string): Lod2Tile {
     }
 
     switch (element) {
-      case "gml:posList":
-        if (inside("bldg:GroundSurface") && parent === "gml:LinearRing" && open.at(-2) === "gml:exterior") {
-          building.rings.push(withoutClosingPoint(positions(numbers(value), srsDimension)));
+      case "gml:posList": {
+        // Only outer rings of polygons; holes and the terrain intersection's lines are left out.
+        if (parent !== "gml:LinearRing" || open.at(-2) !== "gml:exterior") break;
+        const kind = surfaceKind(open);
+        if (!kind) break;
+        const coordinates = numbers(value);
+        if (kind === "ground") building.rings.push(withoutClosingPoint(positions(coordinates, srsDimension)));
+        if (srsDimension === 3) {
+          const ring = withoutClosingPoint3d(points3d(coordinates));
+          if (ring.length >= 3) building.shell.push({ kind, ring });
         }
         break;
+      }
       case "bldg:measuredHeight":
         if (value) building.heights.push(Number(value));
         break;
@@ -124,13 +148,32 @@ export function parseLod2Tile(gml: string): Lod2Tile {
   };
 }
 
-function finish({ id, rings, heights, functionCodes, addresses }: BuildingInProgress): Lod2Building {
+/** Which kind of surface the open elements are inside, if any; closure surfaces aren't drawn. */
+function surfaceKind(open: string[]): SurfaceKind | undefined {
+  for (let i = open.length - 1; i >= 0; i--) {
+    switch (open[i]) {
+      case "bldg:WallSurface":
+        return "wall";
+      case "bldg:RoofSurface":
+        return "roof";
+      case "bldg:GroundSurface":
+        return "ground";
+      case "bldg:Building":
+      case "bldg:BuildingPart":
+        return undefined;
+    }
+  }
+  return undefined;
+}
+
+function finish({ id, rings, shell, heights, functionCodes, addresses }: BuildingInProgress): Lod2Building {
   const heightMetres = heights.length > 0 ? Math.max(...heights) : undefined;
   // A corner building has an address on each street; the first with a street names it.
   const address = addresses.find((a) => a.street) ?? addresses[0];
   return {
     id,
     rings: rings.filter((ring) => ring.length >= 3),
+    ...(shell.length > 0 ? { shell } : {}),
     ...(heightMetres !== undefined ? { heightMetres } : {}),
     ...(functionCodes[0] ? { functionCode: functionCodes[0] } : {}),
     ...(address ? { address } : {}),
@@ -159,6 +202,19 @@ function positions(coordinates: number[], dimension: number): LatLng[] {
     result.push(toLatLng(coordinates[i]!, coordinates[i + 1]!));
   }
   return result;
+}
+
+function points3d(coordinates: number[]): Utm32Point[] {
+  const result: Utm32Point[] = [];
+  for (let i = 0; i + 2 < coordinates.length; i += 3) result.push([coordinates[i]!, coordinates[i + 1]!, coordinates[i + 2]!]);
+  return result;
+}
+
+function withoutClosingPoint3d(ring: Utm32Point[]): Utm32Point[] {
+  const first = ring[0];
+  const last = ring.at(-1);
+  const closes = ring.length > 1 && first && last && first.every((value, i) => value === last[i]);
+  return closes ? ring.slice(0, -1) : ring;
 }
 
 function toLatLng(east: number, north: number): LatLng {

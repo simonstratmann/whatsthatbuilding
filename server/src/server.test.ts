@@ -30,7 +30,7 @@ const TOWN_HALL = buildingNorth("town-hall", 50, { address: { street: "Rathausma
 
 /** A Footprint source covering everywhere, with these Footprints. */
 function sourceOf(...footprints: Footprint[]): FootprintSource {
-  return { covers: async () => true, footprintsAround: async () => footprints };
+  return { covers: async () => true, footprintsAround: async () => footprints, shellsOf: async () => new Map() };
 }
 
 let server: RunningServer | undefined;
@@ -91,8 +91,27 @@ describe("POST /api/identify", () => {
     expect(shell.filter((surface) => surface.kind === "wall")).toHaveLength(4);
   });
 
+  it("gives a Candidate the Building Shell its source has for it", async () => {
+    const at = (east: number, north: number, elevation: number) => ({ ...offsetFrom(ORIGIN, east, north), elevation });
+    const roof = { kind: "roof" as const, ring: [at(-10, 50, 30), at(10, 50, 30), at(0, 60, 38)] };
+    const ground = { kind: "ground" as const, ring: [at(-10, 50, 8), at(10, 50, 8), at(0, 60, 8)] };
+    const url = await start({ ...sourceOf(TOWN_HALL), shellsOf: async () => new Map([["town-hall", [ground, roof]]]) });
+
+    const body = (await (await post(`${url}/api/identify`, facingNorth)).json()) as IdentifyResponse;
+
+    if (!("identification" in body)) throw new Error(`expected an identification, got ${JSON.stringify(body)}`);
+    expect(body.identification.candidates[0]?.shell).toContainEqual({
+      kind: "roof",
+      ring: [
+        [-10, 50, 22],
+        [10, 50, 22],
+        [0, 60, 30],
+      ],
+    });
+  });
+
   it("answers a Snapshot outside the Coverage Area with its warning and no Candidates", async () => {
-    const url = await start({ covers: async () => false, footprintsAround: async () => [TOWN_HALL] });
+    const url = await start({ covers: async () => false, footprintsAround: async () => [TOWN_HALL], shellsOf: async () => new Map() });
 
     const body = (await (await post(`${url}/api/identify`, facingNorth)).json()) as IdentifyResponse;
 
@@ -106,6 +125,7 @@ describe("POST /api/identify", () => {
       footprintsAround: async () => {
         throw new Error("connect ECONNREFUSED 127.0.0.1:5432");
       },
+      shellsOf: async () => new Map(),
     });
 
     const response = await post(`${url}/api/identify`, facingNorth);

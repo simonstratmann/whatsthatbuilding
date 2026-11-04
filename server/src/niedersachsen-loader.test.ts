@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,7 +6,7 @@ import { niedersachsenLoader, NIEDERSACHSEN_TILES_URL, type NiedersachsenLoader 
 import { tileName, type TileKey } from "./niedersachsen-tiles.ts";
 import { parseLod2Tile } from "./lod2-parser.ts";
 import { lod2Store, type Lod2Store } from "./lod2-store.ts";
-import { freshDatabase } from "./test-database.ts";
+import { ageLod2Tiles, freshDatabase } from "./test-database.ts";
 import { fromUtm32 } from "./utm32.ts";
 
 /** A 1 km tile in LGLN's CityGML with one 10 m square house in its middle, named after the tile. */
@@ -82,11 +82,13 @@ function fakeLgln({ missing = [] as TileKey[], failing = [] as TileKey[] } = {})
 }
 
 let store: Lod2Store;
+let databaseUrl: string;
 let cacheDir: string;
 const quiet = { log: () => {}, logError: () => {} };
 
 beforeAll(async () => {
-  store = lod2Store(await freshDatabase());
+  databaseUrl = await freshDatabase();
+  store = lod2Store(databaseUrl);
 });
 afterAll(async () => {
   await store.close();
@@ -227,6 +229,52 @@ describe("the Niedersachsen Footprint source", () => {
 
     await mkdir(join(cacheDir, "niedersachsen"), { recursive: true });
     expect(await readdir(join(cacheDir, "niedersachsen"))).toEqual([]);
+  });
+});
+
+describe("tiles stored before Building Shells", () => {
+  it("reads a Niedersachsen tile again from the file cache the first time a Snapshot needs it, without a download", async () => {
+    const { source } = loader(fakeLgln());
+    await source.footprintsAround(middleOf(HANNOVER), 500);
+    await ageLod2Tiles(databaseUrl);
+    const offline = fakeLgln({ failing: [HANNOVER] });
+    const upgraded = loader(offline);
+
+    const footprints = await upgraded.source.footprintsAround(middleOf(HANNOVER), 500);
+    const shells = await upgraded.source.shellsOf!(footprints.map((f) => f.id));
+
+    expect(shells.get("house-550-5803")?.map((s) => s.kind)).toEqual(["ground"]);
+    expect(offline.requested).toEqual([]);
+    expect(await store.outdatedTiles(middleOf(HANNOVER), 500)).toEqual([]);
+  });
+
+  it("reads a Hamburg tile again from the release in the file cache", async () => {
+    await store.addTile("hamburg", { ...parseLod2Tile(tileGml(IN_HAMBURG)), name: "LoD2_32_565_5933_1_HH" });
+    await ageLod2Tiles(databaseUrl);
+    const releaseDir = join(cacheDir, "hamburg", "LoD2-DE_HH_2026-04-28");
+    await mkdir(releaseDir, { recursive: true });
+    await writeFile(join(releaseDir, "LoD2_32_565_5933_1_HH.gml"), tileGml(IN_HAMBURG));
+    // LGLN has only Niedersachsen's side of the border, and is down besides.
+    const lgln = fakeLgln({ failing: [IN_HAMBURG] });
+    const { source } = loader(lgln);
+
+    await source.footprintsAround(middleOf(IN_HAMBURG), 0);
+
+    expect((await source.shellsOf!(["house-565-5933"])).has("house-565-5933")).toBe(true);
+    expect(await store.outdatedTiles(middleOf(IN_HAMBURG), 0)).toEqual([]);
+  });
+
+  it("answers from the old tile, without Shells, when its GML isn't in the file cache", async () => {
+    const { source } = loader(fakeLgln());
+    await source.footprintsAround(middleOf(HANNOVER), 500);
+    await ageLod2Tiles(databaseUrl);
+    await rm(join(cacheDir, "niedersachsen"), { recursive: true });
+    const logError = vi.fn();
+
+    const footprints = await loader(fakeLgln(), { logError }).source.footprintsAround(middleOf(HANNOVER), 500);
+
+    expect(footprints.map((f) => f.id)).toEqual(["house-550-5803"]);
+    expect(logError).toHaveBeenCalledWith(expect.stringContaining("LoD2_32_550_5803_1_ni"), expect.any(Error));
   });
 });
 

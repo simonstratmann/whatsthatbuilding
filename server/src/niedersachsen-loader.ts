@@ -1,9 +1,10 @@
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { LatLng } from "@whatisthatbuilding/shared";
 import { exists, saveBody } from "./file-cache.ts";
 import type { FootprintSource } from "./identification.ts";
 import { parseLod2Tile } from "./lod2-parser.ts";
-import type { Lod2Store } from "./lod2-store.ts";
+import type { Lod2Store, StoredTile } from "./lod2-store.ts";
 import { middleOfTile, tileName, tilesAround, tilesInBox, type Box, type TileKey } from "./niedersachsen-tiles.ts";
 
 /** LGLN's bucket of Niedersachsen's LoD2 tiles, one GML file per 1 km tile. */
@@ -52,8 +53,14 @@ function limiter(slots: number) {
 }
 
 export interface NiedersachsenLoaderOptions {
-  store: Pick<Lod2Store, "covers" | "footprintsAround" | "addTile" | "markMissing" | "knownTiles">;
-  /** The GML file cache; tiles go in `<cacheDir>/niedersachsen/`. */
+  store: Pick<
+    Lod2Store,
+    "covers" | "footprintsAround" | "shellsOf" | "addTile" | "markMissing" | "knownTiles" | "outdatedTiles" | "replaceTile"
+  >;
+  /**
+   * The GML file cache; tiles go in `<cacheDir>/niedersachsen/`. Hamburg's releases are in
+   * `<cacheDir>/hamburg/<release>/`, where outdated Hamburg tiles are read again from.
+   */
   cacheDir: string;
   fetchFn?: typeof fetch;
   log?: (line: string) => void;
@@ -73,7 +80,8 @@ export interface LoadResult {
 export interface NiedersachsenLoader {
   /**
    * The LoD2 store as a Footprint source, downloading the Niedersachsen tiles a question
-   * needs before answering it. A tile LGLN doesn't have is outside the Coverage Area.
+   * needs before answering it. A tile LGLN doesn't have is outside the Coverage Area. Tiles
+   * stored at an older schema version are read again from the file cache first.
    */
   source: FootprintSource;
   /** Loads the tiles not loaded yet; a tile that fails is logged and counted, and the rest go on. */
@@ -98,6 +106,7 @@ export function niedersachsenLoader({
 }: NiedersachsenLoaderOptions): NiedersachsenLoader {
   const tilesDir = join(cacheDir, "niedersachsen");
   const inFlight = new Map<string, Promise<Outcome>>();
+  const upgrading = new Map<string, Promise<void>>();
   const downloadSlot = limiter(CONCURRENT_DOWNLOADS);
 
   /** Starts loading the tile, or joins the load already under way. */
@@ -134,6 +143,57 @@ export function niedersachsenLoader({
       logError(`[lod2] Loading ${name} failed:`, error);
       throw error;
     }
+  }
+
+  /** Reads an outdated tile again from the file cache, into the store at the current schema version. */
+  async function upgradeTile({ name, dataset }: StoredTile): Promise<void> {
+    try {
+      const path = await cachedGml({ name, dataset });
+      if (!path) throw new Error(`${name} isn't in the file cache; it stays without Building Shells`);
+      const tile = { ...parseLod2Tile(await readFile(path, "utf8")), name };
+      const buildings = await store.replaceTile(dataset, tile);
+      log(`[lod2] Read ${name} again for Building Shells: ${buildings} buildings`);
+    } catch (error) {
+      logError(`[lod2] Reading ${name} again failed:`, error);
+      throw error;
+    }
+  }
+
+  /** Where the file cache keeps a stored tile's GML, if it does. */
+  async function cachedGml({ name, dataset }: StoredTile): Promise<string | undefined> {
+    if (dataset === "niedersachsen") {
+      const path = join(tilesDir, `${name}.gml`);
+      return (await exists(path)) ? path : undefined;
+    }
+    // Hamburg's tiles are named as their files are, in the one release the cache keeps.
+    const hamburgDir = join(cacheDir, "hamburg");
+    const releases = await readdir(hamburgDir, { withFileTypes: true }).catch(() => []);
+    for (const release of releases) {
+      if (!release.isDirectory() || release.name.endsWith(".part")) continue;
+      const path = join(hamburgDir, release.name, `${name}.gml`);
+      if (await exists(path)) return path;
+    }
+    return undefined;
+  }
+
+  /**
+   * Brings the stored tiles a Snapshot needs up to the current schema version. One that can't
+   * be read again stays as it is: the Snapshot is answered with blocks for its buildings.
+   */
+  async function upgrade(centre: LatLng, radiusMetres: number): Promise<void> {
+    const outdated = await store.outdatedTiles(centre, radiusMetres);
+    await Promise.all(
+      outdated.map((tile) => {
+        // Parsing takes as much memory as after a download, so it shares the download slots.
+        let promise = upgrading.get(tile.name);
+        if (!promise) {
+          promise = downloadSlot(() => upgradeTile(tile)).finally(() => upgrading.delete(tile.name));
+          upgrading.set(tile.name, promise);
+        }
+        // upgradeTile has logged the failure.
+        return promise.catch(() => {});
+      }),
+    );
   }
 
   /** The tiles not yet loaded or known missing. Outside Niedersachsen's box, LGLN isn't asked at all. */
@@ -182,8 +242,10 @@ export function niedersachsenLoader({
       },
       async footprintsAround(centre, radiusMetres) {
         await ensure(tilesAround(centre, radiusMetres + TILE_MARGIN_METRES));
+        await upgrade(centre, radiusMetres + TILE_MARGIN_METRES);
         return store.footprintsAround(centre, radiusMetres);
       },
+      shellsOf: (ids) => store.shellsOf(ids),
     },
     load,
     preload: (box) => load(tilesInBox(box)),

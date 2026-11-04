@@ -14,14 +14,20 @@ import {
   type Point,
   type Snapshot,
 } from "@whatisthatbuilding/shared";
-import { blockShell } from "./building-shells.ts";
+import { blockShell, localShell, type StoredShell } from "./building-shells.ts";
 import { buildingTypeOf } from "./building-types.ts";
 
 export interface FootprintSource {
   /** Whether the Coverage Area includes the position: whether there is building data for it. */
   covers(position: LatLng): Promise<boolean>;
   footprintsAround(centre: LatLng, radiusMetres: number): Promise<Footprint[]>;
+  /**
+   * The Building Shells of these Footprints, by ID, for those the building model has one for;
+   * the others are drawn as blocks. Asked only after footprintsAround.
+   */
+  shellsOf(ids: string[]): Promise<Map<string, StoredShell>>;
 }
+
 
 /** Where building names come from: OpenStreetMap, or a fake in tests. */
 export interface LabelSource {
@@ -86,24 +92,29 @@ export async function identify(
     .map((found) => ({ ...found, distanceMetres: distanceToRings(found.rings) }));
   const isHidden = hiddenTest(inCone, snapshot.heading);
 
-  const candidates = inCone
+  const ranked = inCone
     .map((found) => ({ ...found, hidden: isHidden(found) }))
     // Candidates the user can see first, then Hidden Candidates; nearest first within each.
     .sort((a, b) => Number(a.hidden) - Number(b.hidden) || a.distanceMetres - b.distanceMetres)
-    .slice(0, MAX_CANDIDATES)
-    .map(({ footprint, rings, distanceMetres }, index) => {
-      const name = names?.nameOf(footprint);
-      const withName = name ? { ...footprint, name } : footprint;
-      const buildingType = footprint.functionCode ? buildingTypeOf(footprint.functionCode) : undefined;
-      return {
-        number: index + 1,
-        footprint: withName,
-        shell: blockShell(rings, footprint.heightMetres),
-        distanceMetres,
-        location: locationOf(withName),
-        ...(buildingType ? { buildingType } : {}),
-      };
-    });
+    .slice(0, MAX_CANDIDATES);
+  // Shells make up most of the response: at Kröpcke in Hannover (8 Candidates, among them the
+  // Kröpcke-Center and the Marktkirche) it came to 94 KB, 16 KB gzipped (measured 2026-11-04).
+  const shells = await source.shellsOf(ranked.map(({ footprint }) => footprint.id));
+
+  const candidates = ranked.map(({ footprint, rings, distanceMetres }, index) => {
+    const name = names?.nameOf(footprint);
+    const withName = name ? { ...footprint, name } : footprint;
+    const buildingType = footprint.functionCode ? buildingTypeOf(footprint.functionCode) : undefined;
+    const stored = shells.get(footprint.id);
+    return {
+      number: index + 1,
+      footprint: withName,
+      shell: stored ? localShell(stored, toLocal) : blockShell(rings, footprint.heightMetres),
+      distanceMetres,
+      location: locationOf(withName),
+      ...(buildingType ? { buildingType } : {}),
+    };
+  });
   return { candidates, warnings: warningsFor(snapshot, candidates.length), ...searched };
 }
 

@@ -94,6 +94,17 @@ describe("importHamburg", () => {
     });
   });
 
+  it("stores the tiles with their Building Shells, at the current schema version", async () => {
+    const { fetchFn } = serving({ [RELEASE_2026]: await releaseZip({ "LoD2_32_565_5933_1_HH.gml": excerpt }) });
+
+    await importHamburg({ store, cacheDir, releaseUrl: RELEASE_2026, fetchFn, log: quiet });
+
+    expect(await store.outdatedTiles(RÖDINGSMARKT, 1000)).toEqual([]);
+    const shells = await store.shellsOf(["DEHHALKA90000Hr8", "DEHHALKAJ0000pzB", "DEHHALKA4RH000OT"]);
+    expect(shells.size).toBe(3);
+    expect(shells.get("DEHHALKA4RH000OT")?.map((s) => s.kind).sort()).toEqual(["ground", "roof", "wall", "wall", "wall", "wall"]);
+  });
+
   it("loads a release already in the file cache without downloading it again", async () => {
     const { fetchFn, requested } = serving({ [RELEASE_2026]: await releaseZip({ "LoD2_32_565_5933_1_HH.gml": excerpt }) });
     await importHamburg({ store, cacheDir, releaseUrl: RELEASE_2026, fetchFn, log: quiet });
