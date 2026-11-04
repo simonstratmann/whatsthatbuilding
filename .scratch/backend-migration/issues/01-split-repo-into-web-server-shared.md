@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
 - [x] The PWA lives in `web`; `server` and `shared` exist and are wired into the build and typecheck
 - [x] `npm run dev`, `dev:https`, `build`, `typecheck` and `test` work from the repo root
