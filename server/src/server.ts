@@ -12,6 +12,7 @@ import {
   type IdentifyResponse,
 } from "@whatisthatbuilding/shared";
 import { Hono } from "hono";
+import { compress } from "hono/compress";
 import { isTileKey, type DopProxy } from "./dop-proxy.ts";
 import { identify, type FootprintSource, type LabelSource } from "./identification.ts";
 import { finishRecord, isRequestId, newRequestId, recordingSource, startRecord, writeRequestLog } from "./request-log.ts";
@@ -32,6 +33,8 @@ export interface AppOptions {
 /** The API and, given a webRoot, the PWA. */
 export function createApp({ footprintSource, labelSource, dop, requestLogDir, webRoot }: AppOptions): Hono {
   const app = new Hono();
+  // Building Shells make an Identification 100–250 KB of JSON; gzipped it is about a sixth.
+  app.use(IDENTIFY_PATH, compress());
 
   app.post(IDENTIFY_PATH, async (c) => {
     const request = asIdentifyRequest(await c.req.json().catch(() => undefined));

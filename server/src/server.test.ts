@@ -49,8 +49,8 @@ async function start(
   return server.url;
 }
 
-function post(url: string, body: unknown): Promise<Response> {
-  return fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+function post(url: string, body: unknown, headers: Record<string, string> = {}): Promise<Response> {
+  return fetch(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
 }
 
 describe("POST /api/identify", () => {
@@ -130,6 +130,15 @@ describe("POST /api/identify", () => {
     expect(Object.keys(surrounding!).sort()).toEqual(["footprintId", "shell"]);
     expect(surrounding!.footprintId).toBe("beside");
     expect(surrounding!.shell).toContainEqual({ kind: "roof", ring: [[25, 50, 9], [35, 50, 9], [35, 60, 9], [25, 60, 9]] });
+  });
+
+  it("compresses its answer for a client that takes gzip, as phones on mobile data do", async () => {
+    const url = await start(sourceOf(TOWN_HALL));
+
+    const response = await post(`${url}/api/identify`, facingNorth, { "Accept-Encoding": "gzip" });
+
+    expect(response.headers.get("content-encoding")).toBe("gzip");
+    expect(((await response.json()) as IdentifyResponse).requestId).toBeTruthy();
   });
 
   it("answers a Snapshot outside the Coverage Area with its warning and no Candidates", async () => {
